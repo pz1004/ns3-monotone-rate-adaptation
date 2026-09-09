@@ -1,0 +1,20 @@
+[gate1] 450 runs on 24 workers
+  25/450 elapsed=57s fails=0
+  50/450 elapsed=104s fails=0
+  75/450 elapsed=150s fails=0
+  100/450 elapsed=189s fails=0
+  125/450 elapsed=239s fails=0
+  150/450 elapsed=281s fails=0
+  175/450 elapsed=313s fails=0
+  200/450 elapsed=348s fails=0
+  225/450 elapsed=388s fails=0
+  250/450 elapsed=418s fails=0
+  275/450 elapsed=456s fails=0
+  300/450 elapsed=482s fails=0
+  325/450 elapsed=498s fails=0
+  350/450 elapsed=511s fails=0
+  375/450 elapsed=524s fails=0
+  400/450 elapsed=535s fails=0
+  425/450 elapsed=550s fails=0
+  450/450 elapsed=560s fails=0
+[gate1] 8550 rows -> results/envelope/const_sweep.parquet in 560s (0 failures)

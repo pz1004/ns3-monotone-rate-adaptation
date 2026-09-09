@@ -1,0 +1,8 @@
+[ablation] 270 runs on 24 workers
+  50/270 79s fails=0
+  100/270 158s fails=0
+  150/270 239s fails=0
+  200/270 289s fails=0
+  250/270 324s fails=0
+  270/270 332s fails=0
+[ablation] 270 rows -> results/ors/tune_window.parquet (0 failures)

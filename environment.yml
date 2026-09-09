@@ -1,0 +1,19 @@
+# Environment that produced the released results. Versions are the ones actually used,
+# not a lower bound -- pin loosely at your own risk, the analyses are plain pandas.
+#
+#   conda env create -f environment.yml && conda activate icc2027
+#
+# cmake is pinned here because ns-3.48 requires >= 3.25 and Ubuntu 22.04 ships 3.22.
+name: icc2027
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - cmake=4.4          # ns-3.48 needs >= 3.25; distro cmake on Ubuntu 22.04 is too old
+  - ninja
+  - ccache
+  - pandas=3.0
+  - numpy=2.4
+  - scipy=1.17
+  - matplotlib=3.11
+  - pyarrow=25.0       # parquet

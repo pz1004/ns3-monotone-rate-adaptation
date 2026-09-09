@@ -1,0 +1,11 @@
+[ablation] 450 runs on 24 workers
+  50/450 131s fails=0
+  100/450 231s fails=0
+  150/450 339s fails=0
+  200/450 423s fails=0
+  250/450 508s fails=0
+  300/450 587s fails=0
+  350/450 632s fails=0
+  400/450 674s fails=0
+  450/450 710s fails=0
+[ablation] 450 rows -> results/ors/tune3.parquet (0 failures)

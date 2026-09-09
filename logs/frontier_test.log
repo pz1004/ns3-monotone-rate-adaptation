@@ -1,0 +1,9 @@
+[ablation] 330 runs on 24 workers
+  50/330 128s fails=0
+  100/330 231s fails=0
+  150/330 298s fails=0
+  200/330 368s fails=0
+  250/330 405s fails=0
+  300/330 437s fails=0
+  330/330 454s fails=0
+[ablation] 330 rows -> results/mono/frontier_test.parquet (0 failures)

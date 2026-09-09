@@ -1,0 +1,6 @@
+[ablation] 180 runs on 24 workers
+  50/180 124s fails=0
+  100/180 187s fails=0
+  150/180 225s fails=0
+  180/180 239s fails=0
+[ablation] 180 rows -> results/ors/heldout.parquet (0 failures)

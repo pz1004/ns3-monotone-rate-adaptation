@@ -1,0 +1,4 @@
+[ablation] 90 runs on 24 workers
+  50/90 102s fails=0
+  90/90 123s fails=0
+[ablation] 90 rows -> results/mono/heldout_snr.parquet (0 failures)

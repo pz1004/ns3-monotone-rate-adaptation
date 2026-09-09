@@ -1,0 +1,6 @@
+[ablation] 180 runs on 24 workers
+  50/180 157s fails=0
+  100/180 236s fails=0
+  150/180 293s fails=0
+  180/180 311s fails=0
+[ablation] 180 rows -> results/mono/tune_split.parquet (0 failures)

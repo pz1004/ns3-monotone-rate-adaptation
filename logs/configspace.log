@@ -1,0 +1,10 @@
+[ablation] 360 runs on 24 workers
+  50/360 45s fails=0
+  100/360 90s fails=0
+  150/360 132s fails=0
+  200/360 168s fails=0
+  250/360 204s fails=0
+  300/360 237s fails=0
+  350/360 268s fails=0
+  360/360 277s fails=0
+[ablation] 360 rows -> results/mono/configspace.parquet (0 failures)

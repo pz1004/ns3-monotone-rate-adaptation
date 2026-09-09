@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "If you use this software or data, please cite the paper below."
+title: "Monotone Evidence Sharing for Rate Adaptation in IEEE 802.11be — artifact"
+abstract: >-
+  ns-3 rate-adaptation manager that propagates each transmission outcome to
+  neighbouring rates ordered by required SNR rather than by data rate, with the
+  campaign data and the scripts that regenerate every table and figure in the paper.
+authors:
+  - family-names: Jang
+    given-names: Sooyoung
+    affiliation: "Department of Computer Engineering, Hanbat National University"
+    email: syjang@hanbat.ac.kr
+  - family-names: Kim
+    given-names: Eunkyung
+    affiliation: "Department of Artificial Intelligence Software, Hanbat National University"
+    email: ekim@hanbat.ac.kr
+license: GPL-2.0-only
+keywords:
+  - ns-3
+  - IEEE 802.11be
+  - rate adaptation
+  - multi-armed bandits
+  - reproducibility
+preferred-citation:
+  type: conference-paper
+  title: "Monotone Evidence Sharing for Rate Adaptation in IEEE 802.11be"
+  authors:
+    - family-names: Jang
+      given-names: Sooyoung
+    - family-names: Kim
+      given-names: Eunkyung
+  year: 2027
+  conference:
+    name: "IEEE International Conference on Communications (ICC)"

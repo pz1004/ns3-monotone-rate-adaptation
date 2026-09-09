@@ -1,0 +1,7 @@
+[ablation] 240 runs on 24 workers
+  50/240 158s fails=0
+  100/240 257s fails=0
+  150/240 334s fails=0
+  200/240 385s fails=0
+  240/240 411s fails=0
+[ablation] 240 rows -> results/adaptdecay/tune.parquet (0 failures)

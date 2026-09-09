@@ -1,0 +1,10 @@
+[ablation] 360 runs on 24 workers
+  50/360 93s fails=0
+  100/360 183s fails=0
+  150/360 254s fails=0
+  200/360 318s fails=0
+  250/360 374s fails=0
+  300/360 408s fails=0
+  350/360 441s fails=0
+  360/360 446s fails=0
+[ablation] 360 rows -> results/ors/tune_window2.parquet (0 failures)

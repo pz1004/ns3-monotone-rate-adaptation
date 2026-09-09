@@ -1,0 +1,10 @@
+[ablation] 360 runs on 24 workers
+  50/360 37s fails=0
+  100/360 70s fails=0
+  150/360 105s fails=0
+  200/360 134s fails=0
+  250/360 156s fails=0
+  300/360 177s fails=0
+  350/360 199s fails=0
+  360/360 202s fails=0
+[ablation] 360 rows -> results/mono/h3_snr.parquet (0 failures)

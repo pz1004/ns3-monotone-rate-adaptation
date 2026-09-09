@@ -1,0 +1,26 @@
+This artifact accompanies the paper described in README.md.
+
+LICENSING
+---------
+Code (ns3/, runner/, analysis/, reproduce.sh) is GPL-2.0-only. This is not a
+preference: the two rate managers in ns3/contrib/cqra/model/ are derived works of
+ns-3's ThompsonSamplingWifiManager
+
+    Copyright (c) 2021 IITP RAS
+    Author: Alexander Krotov <krotov@iitp.ru>
+    SPDX-License-Identifier: GPL-2.0-only
+
+and the scenario in ns3/scratch/ links against ns-3. See the SPDX headers in each
+source file for the derivation each one declares.
+
+Data and documentation (results/, logs/, docs/, env/) are released under
+CC-BY-4.0: https://creativecommons.org/licenses/by/4.0/
+
+BASELINES
+---------
+ors-wifi-manager.{h,cc} is our reimplementation of the ORS / SW-ORS / KL-R-UCB
+algorithms of Combes, Proutiere et al., "Optimal Rate Sampling in 802.11 Systems"
+(INFOCOM 2014). Any defect in it is ours, not theirs. See docs/ors_baseline.md.
+
+ns-3 itself is NOT redistributed here. Fetch release 3.48 from https://www.nsnam.org/
+and verify it against env/tarball.sha256.

@@ -1,0 +1,13 @@
+field,value,count
+mcs,0,525
+mcs,8,37708
+mcs,9,150029
+mcs,10,169722
+mcs,11,202292
+width,20,128
+width,40,44
+width,80,560104
+nss,1,525
+nss,2,559751
+total_phy_tx,0,560276
+rx_bytes_total,0,738658200
