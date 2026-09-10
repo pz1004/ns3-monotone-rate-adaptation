@@ -156,7 +156,7 @@ release or brought into line with what the project later did.
 > early, and the rule its hypothesis names was later refuted under the protocol's own
 > refutation criterion and replaced. Eight dated amendments record that and every other
 > post-freeze change, including an S2 split violation that was caught and redone, a change
-> of primary metric, two inputs below the seed floor, and which pre-committed secondary
+> of primary metric, two inputs that fell below the seed floor and were re-run at 10 seeds, and which pre-committed secondary
 > metrics went unreported.
 
 ---

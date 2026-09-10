@@ -109,8 +109,9 @@ def main():
         return 1
     out = Path(a.out); out.parent.mkdir(parents=True, exist_ok=True)
     df = pd.concat(frames, ignore_index=True)
-    df.to_parquet(out.with_suffix(".parquet"), index=False)
-    print(f"[gate1] {len(df)} rows -> {out}.parquet in {time.time()-t0:.0f}s "
+    dst = out.with_suffix(".parquet")
+    df.to_parquet(dst, index=False)
+    print(f"[gate1] {len(df)} rows -> {dst} in {time.time()-t0:.0f}s "
           f"({len(fails)} failures)")
     for r, e in fails[:8]:
         print("   FAIL", r, e)

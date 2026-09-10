@@ -160,23 +160,40 @@ speeds {0, 2, 10} with 10 seeds, and `results/mono/heldout_snr.parquet` then eva
 single selected configuration (w = 0.25) at the held-out speeds {1, 5, 20}. Both files are
 released, so the split discipline can be checked rather than taken on trust.
 
-### A4 — Two inputs fall below §4's seed floor
+### A4 — 2026-09-10 — Two inputs fell below §4's seed floor; both were re-run at 10 seeds
 
 §4 requires **≥10 seeds** per cell, "≥5 only under the descope ladder" — a term this
-protocol never defines, which is itself a defect in the frozen text. The campaign and
-every held-out evaluation use 10 seeds. Two smaller inputs do not:
+protocol never defines, which is a defect in the frozen text and is left uncorrected here
+because the text above is frozen. Two inputs were found below the floor during the
+pre-submission audit:
 
-- `results/gate1/decay_frontier.parquet` — **5 seeds**. Supplies one reported quantity:
-  how many percentage points the best single forgetting rate falls short of the per-speed
-  best. At §4's stated floor, but only under the undefined condition.
-- `results/day3_validation/mgr_sweep.parquet` — **2 seeds**. **Below the floor.** This
-  supplies the motivating measurement in the introduction: Minstrel-HT's convergence-phase
-  throughput falling from 99.6% of a genie at 8 rates to 47.1% at 72, tracking table size
-  at r = −0.68.
+- `results/day3_validation/mgr_sweep.parquet` — **2 seeds**, below the floor outright, and
+  §4 also says "single-run curves are not acceptable". It supplies the motivating
+  measurement in the introduction.
+- `results/gate1/decay_frontier.parquet` — **5 seeds**, at the stated floor but only under
+  the undefined condition. It supplies one reported quantity: how far the best single
+  forgetting rate falls short of the per-speed best.
 
-The second is the one that matters, because it is a framing claim rather than a result,
-and §4 also says "single-run curves are not acceptable". It is reported here rather than
-left for a reader to find. Both sweeps are inexpensive to repeat at 10 seeds.
+**Both were re-run at 10 seeds on 2026-09-10** with grids otherwise unchanged, and every
+reported number now derives from 10 seeds. The four affected quantities moved as follows:
+
+| quantity | before | after |
+|---|---|---|
+| Minstrel-HT, % of genie at 8 rates | 99.6 | 99.5 |
+| Minstrel-HT, % of genie at 72 rates | 47.1 | **55.1** |
+| corr(table size, % of genie) | −0.68 | **−0.79** |
+| forgetting-rate compromise (pp) | 1.7 | 1.6 |
+
+The correlation that carries the argument **strengthened** (−0.68 → −0.79) while the most
+extreme single figure became less extreme (47.1% → 55.1%): the 2-seed estimate had been an
+optimistic draw in the direction that flattered the claim. Both are reported, and the
+direction of the finding is unchanged.
+
+Two notes on the re-run. The manager sweep attempts 720 runs and completes 660: 802.11n at
+80 MHz is rejected by `wifi-manager-example` as an invalid width, excluding 6
+configurations. The original 2-seed sweep excluded exactly the same 6, so the before/after
+comparison above is like-for-like. And the decay frontier is 1440 runs, 0 failures. Both
+are covered by `reproduce.sh` and corroborated by `logs/`.
 
 ### A5 — 2026-09-08 21:53 — Primary metric changed to absolute throughput
 

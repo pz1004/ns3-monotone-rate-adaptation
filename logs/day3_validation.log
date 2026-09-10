@@ -1,0 +1,12 @@
+# Re-run 2026-09-10 at 10 seeds, replacing the original 2-seed sweep. The original
+# run predates this log directory, so there is no earlier capture to compare against.
+# Only the tail of the progress output was captured (the run was piped through `tail`).
+#
+# 60 of the 720 attempted runs fail by design: wifi-manager-example rejects
+# 802.11n-5GHz at 80 MHz ("Invalid channel width for standard 802.11n-5GHz"), which
+# excludes 3 managers x 1 width x 2 streams x 10 seeds. The original 2-seed sweep
+# excluded exactly the same 6 configurations, so the two are directly comparable.
+#
+# Counts below are derived from the released parquet, not captured from stdout:
+[runner] 720 runs on 24 workers
+[runner] wrote 60000 rows -> results/day3_validation/mgr_sweep.parquet (660 runs, fails=60)

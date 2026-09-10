@@ -23,7 +23,8 @@ Three things worth knowing before you open it:
   the refutation, the reason, and what survived unchanged — the *form* of the claim and
   the statistics, which is why the pre-registration still constrains anything.
 - **The amendments record the failures too**, not just the substitutions: an S2 split
-  violation caught and redone (A3), two inputs below §4's seed floor (A4), a primary metric
+  violation caught and redone (A3), two inputs below §4's seed floor that were re-run at
+  10 seeds (A4), a primary metric
   that had to change because the genie turned out not to be an upper bound (A5), three
   pre-committed secondary metrics that went unreported (A7), and one headline scaling
   result that is post-freeze and should be read as exploratory (A8).

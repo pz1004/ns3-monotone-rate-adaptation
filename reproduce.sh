@@ -26,7 +26,7 @@ run() {  # run <name> <script> <args...>
 }
 
 
-# THE MAIN CAMPAIGN. 11,520 runs; Table V and the per-cell table.
+# THE MAIN CAMPAIGN. 11,520 runs; Table IV and the per-cell audit (Table VI).
 #   11520 rows, recorded in logs/campaign.log
 run campaign_full run_ablation.py \
   --nsta 1 4 8 \
@@ -58,7 +58,7 @@ run adaptdecay_tune run_ablation.py \
   --decay-targets 0.01 0.02 0.05 0.1 0.2 \
   --out results/adaptdecay/tune.parquet
 
-# Selection-bias diagnostic. Fig. 1.
+# Selection-bias diagnostic. Table I, Fig. 1.
 #   80 rows
 run diag_bias10 run_ablation.py \
   --nsta 4 \
@@ -72,7 +72,7 @@ run diag_bias10 run_ablation.py \
   --no-mono \
   --out results/diag/bias10.parquet
 
-# H3: does the gain grow with configuration-space size?
+# Benefit vs configuration-space size (see protocol amendment A8).
 #   360 rows, recorded in logs/configspace.log
 run mono_configspace run_ablation.py \
   --nsta 4 \
@@ -85,7 +85,7 @@ run mono_configspace run_ablation.py \
   --weights 0.05 \
   --out results/mono/configspace.parquet
 
-# Frontier the proposed configuration must clear. Fig. 2.
+# Frontier the proposed configuration must clear. Fig. 3.
 #   330 rows, recorded in logs/frontier_test.log
 run mono_frontier_test run_ablation.py \
   --nsta 4 \
@@ -99,7 +99,7 @@ run mono_frontier_test run_ablation.py \
   --weights 0.25 \
   --out results/mono/frontier_test.parquet
 
-# H3 under required-SNR ordering.
+# Benefit vs configuration-space size, required-SNR ordering.
 #   360 rows, recorded in logs/h3_snr.log
 run mono_h3_snr run_ablation.py \
   --nsta 4 \
@@ -126,7 +126,7 @@ run mono_heldout_S2 run_ablation.py \
   --weights 0.05 \
   --out results/mono/heldout_S2.parquet
 
-# Required-SNR ordering, held out.
+# Held-out evaluation of the single selected configuration.
 #   90 rows, recorded in logs/heldout_snr.log
 run mono_heldout_snr run_ablation.py \
   --nsta 4 \
@@ -195,7 +195,7 @@ run mono_monodecay_50 run_ablation.py \
   --weights 0.25 \
   --out results/mono/monodecay_50.parquet
 
-# Matched ordering ablation: required SNR vs data rate. Fig. 2.
+# Matched ordering ablation: required SNR vs data rate. Table III, Fig. 3.
 #   480 rows, recorded in logs/order_matched.log
 run mono_order_matched run_ablation.py \
   --nsta 4 \
@@ -224,7 +224,7 @@ run mono_s3_s4 run_ablation.py \
   --weights 0.25 \
   --out results/mono/s3_s4.parquet
 
-# Required-SNR ordering on the tuning split.
+# Weight sweep on the TUNING split (required-SNR ordering); selects w=0.25.
 #   210 rows, recorded in logs/tune_snr.log
 run mono_tune_snr run_ablation.py \
   --nsta 4 \
@@ -237,7 +237,7 @@ run mono_tune_snr run_ablation.py \
   --weights 0.02 0.05 0.1 0.25 0.5 \
   --out results/mono/tune_snr.parquet
 
-# Weight sweep on the TUNING split.
+# Weight sweep on the TUNING split (data-rate ordering).
 #   180 rows, recorded in logs/tune_split.log
 run mono_tune_split run_ablation.py \
   --nsta 4 \
@@ -310,7 +310,7 @@ run ors_tune_window2 run_ablation.py \
   --ors KL-R-UCB:DataRate:200 ORS:DataRate:200 SW-ORS:DataRate:100 SW-ORS:DataRate:1000 SW-ORS:DataRate:20 SW-ORS:DataRate:200 SW-ORS:DataRate:2000 SW-ORS:DataRate:50 SW-ORS:DataRate:500 SW-ORS:DataRate:5000 \
   --out results/ors/tune_window2.parquet
 
-# Mobility crossover: where not adapting wins. Fig. 3.
+# Mobility crossover: where not adapting wins. Fig. 4.
 #   1530 rows, recorded in logs/threshold.log
 run threshold_sweep run_ablation.py \
   --nsta 4 \
@@ -337,7 +337,6 @@ run envelope_const_sweep run_gate1.py \
   --seeds 1 2 3 4 5 6 7 8 9 10 \
   --channels logdistance+jakes \
   --out results/envelope/const_sweep.parquet
-
 #   4788 rows
 run gate1_contention_speed run_gate1.py \
   --managers Ideal MinstrelHt ThompsonSampling \
@@ -351,7 +350,7 @@ run gate1_contention_speed run_gate1.py \
   --out results/gate1/contention_speed.parquet
 
 # Swept fixed-Decay frontier over speed and channel.
-#   13680 rows, recorded in logs/decay_frontier.log
+#   56160 rows, recorded in logs/decay_frontier.log
 run gate1_decay_frontier run_gate1.py \
   --managers Ideal MinstrelHt ThompsonSampling \
   --mcs-list 9 \
@@ -359,11 +358,10 @@ run gate1_decay_frontier run_gate1.py \
   --speeds 0 1 2 5 10 20 \
   --widths 80 \
   --nss 2 \
-  --seeds 1 2 3 4 5 \
+  --seeds 1 2 3 4 5 6 7 8 9 10 \
   --channels logdistance logdistance+jakes \
   --ts-decays 0 0.5 1 2 5 10 20 50 100 \
   --out results/gate1/decay_frontier.parquet
-
 #   3978 rows
 run gate1_eht_mobility run_gate1.py \
   --managers Ideal MinstrelHt ThompsonSampling \
@@ -375,7 +373,6 @@ run gate1_eht_mobility run_gate1.py \
   --seeds 1 2 3 \
   --channels logdistance \
   --out results/gate1/eht_mobility.parquet
-
 #   17290 rows, recorded in logs/speed_fading.log
 run gate1_speed_fading run_gate1.py \
   --managers Ideal MinstrelHt ThompsonSampling \
@@ -387,7 +384,6 @@ run gate1_speed_fading run_gate1.py \
   --seeds 1 2 3 4 5 \
   --channels logdistance logdistance+jakes \
   --out results/gate1/speed_fading.parquet
-
 #   8645 rows
 run gate1_speed_sweep run_gate1.py \
   --managers Ideal MinstrelHt ThompsonSampling \
@@ -400,8 +396,8 @@ run gate1_speed_sweep run_gate1.py \
   --channels logdistance \
   --out results/gate1/speed_sweep.parquet
 
-# Day-3 validation against the WNS3-2023 reference curves.
-#   12000 rows
+# Minstrel-HT starvation across standards (Sec. III).
+#   60000 rows, recorded in logs/day3_validation.log
 run day3_validation_mgr_sweep run_sweep.py \
   --managers Ideal MinstrelHt ThompsonSampling \
   --standards 802.11ac 802.11ax-5GHz 802.11be-5GHz 802.11n-5GHz \
@@ -410,7 +406,7 @@ run day3_validation_mgr_sweep run_sweep.py \
   --gi 800 \
   --step-size 1 \
   --step-times 1 \
-  --seeds 1 2 \
+  --seeds 1 2 3 4 5 6 7 8 9 10 \
   --out results/day3_validation/mgr_sweep.parquet
 
 # Smoke test of the sweep harness.
