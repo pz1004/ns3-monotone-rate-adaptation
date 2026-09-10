@@ -218,13 +218,25 @@ as a metric. A ratio against a reference that can be beaten is not a sound headl
 quantity.
 
 **The primary metric is now absolute delivered throughput (Mb/s)**; genie-relative figures
-are retained as diagnostics only. Two static references were added and are reported
-alongside: the best fixed rate chosen in hindsight, and the per-interval best-fixed-rate
-envelope (`results/envelope/`, derived by `analysis/make_references.py`).
+are retained as diagnostics only.
 
-This change worked against the headline rather than for it. Measured on the new metric,
-the method loses to an oracle static rate at 20 m/s — as does every adaptive scheme
-tested — and that loss is reported.
+The static references need care, because §3 already pre-registered one — "best-fixed-rate
+envelope from `ConstantRate`" — and the paper reports three things derived from that
+sweep: the **per-interval envelope** (a genie re-choosing the rate every 0.5 s), the
+**best fixed rate per condition** chosen in hindsight, and a **single deployment-wide
+MCS**. The first two are within §3's wording. The third is not: a rate held fixed across
+every condition is a different reference from the best rate for each, and it was added
+after the freeze. All three are derived by `analysis/make_references.py` and
+`make_percell.py` from `results/envelope/` and the campaign.
+
+That addition is not cosmetic, and it cuts both ways. Measured against the *oracle* static
+rate the method loses at 20 m/s, as does every adaptive scheme tested, and that loss is
+reported. Measured against the deployment-wide MCS — the reference a real deployment
+actually faces, since no one gets to pick the best rate per condition in advance —
+adaptation wins at every speed, and the method extends the crossover from 3.5 to
+12.4 m/s. A reference that produces a headline loss and a headline win in the same table
+is exactly the kind of post-freeze addition that has to be recorded rather than left
+implicit.
 
 ### A6 — 2026-09-08 19:44 — Reference set extended with the ORS family
 
@@ -250,9 +262,17 @@ not:
 - **Per-STA Jain fairness** — not reported, and not recoverable from the released data:
   the scenario logs per-interval *aggregate* throughput only, so obtaining it would require
   re-instrumenting the scenario and re-running.
-- **The policy's own decision cost** — not reported as a measured number.
+- **The policy's own decision cost** — not reported at all, and §6's stated reason for
+  expecting it to be negligible no longer describes the method. §6 says "it is a scalar
+  recursion"; that was true of the calibrated-quantile rule, whose quantile update is a
+  single scalar step. The replacement is not: `PropagateMonotone` walks the whole rate
+  order on every outcome, so the per-decision cost is linear in the size of the rate
+  table — the very quantity this paper argues is growing (8 rates to 72). It remains
+  small in absolute terms, a few dozen floating-point updates per A-MPDU, but it is no
+  longer negligible *by the argument the protocol gave*, and it should have been measured.
 
-The first is moot; the other two are shortfalls against this protocol.
+The first is moot; the other two are shortfalls against this protocol, and the third is
+the one worth acting on.
 
 ### A8 — The scaling of benefit with rate-table size is a post-freeze hypothesis
 
