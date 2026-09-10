@@ -262,17 +262,48 @@ not:
 - **Per-STA Jain fairness** — not reported, and not recoverable from the released data:
   the scenario logs per-interval *aggregate* throughput only, so obtaining it would require
   re-instrumenting the scenario and re-running.
-- **The policy's own decision cost** — not reported at all, and §6's stated reason for
-  expecting it to be negligible no longer describes the method. §6 says "it is a scalar
-  recursion"; that was true of the calibrated-quantile rule, whose quantile update is a
-  single scalar step. The replacement is not: `PropagateMonotone` walks the whole rate
-  order on every outcome, so the per-decision cost is linear in the size of the rate
-  table — the very quantity this paper argues is growing (8 rates to 72). It remains
-  small in absolute terms, a few dozen floating-point updates per A-MPDU, but it is no
-  longer negligible *by the argument the protocol gave*, and it should have been measured.
+- **The policy's own decision cost** — measured 2026-09-10, and **bounded rather than
+  resolved**. See below.
 
-The first is moot; the other two are shortfalls against this protocol, and the third is
-the one worth acting on.
+The first is moot; the second is an outstanding shortfall.
+
+#### Decision cost: what was measured, and what it did not settle
+
+§6 expects this cost to be negligible because the policy "is a scalar recursion". That
+described the withdrawn calibrated-quantile rule, whose quantile update is a single scalar
+step. The replacement is not: `PropagateMonotone` walks the entire rate order on every
+outcome, so the cost is linear in rate-table size — the very quantity this paper argues is
+growing (12 rates at 20 MHz / 1 stream to 72 at 80 MHz / 2 streams).
+
+**Isolation.** Propagation returns immediately when `StructureWeight` ≤ 0, so the loop can
+be switched on and off without changing behaviour: `w = 0` is compared against
+`w = 1e-12`, which executes the full loop but adds evidence far too small to alter any
+decision. The premise was checked rather than assumed, and it holds exactly — throughput
+differs by **0.000%** at every configuration, so both arms run the identical trajectory
+and any wall-clock difference is the loop and nothing else.
+
+**The cost did not resolve.** Across 20 paired seeds at four rate-table sizes, every 95%
+confidence interval on the wall-clock difference straddles zero, two of the four point
+estimates are *negative*, and the regression of cost against table size is not significant
+(slope +97 ns/rate, p = 0.73). The loop is far below what end-to-end simulation timing can
+distinguish; ns-3's per-frame processing dominates it.
+
+What the experiment does establish is an upper bound, and a useful one at the
+configuration the paper cares about:
+
+| rates | decisions per run | 95% upper bound | per second of airtime |
+|---|---|---|---|
+| 12 | 4,052 | < 5.1 µs/decision | < 0.21% of one core |
+| 72 | 12,209 | < 6.6 µs/decision | < 0.80% of one core |
+
+At 72 rates the manager decides once every 819 µs of airtime, so even at the 95% upper
+bound the policy consumes under 1% of one core. That is enough to say the method is
+deployable, and it is *not* the measurement §6 asked for. Resolving the actual cost needs
+either timing instrumentation inside the manager or hardware instruction counters, which
+are unavailable on this host (`perf_event_paranoid` = 4). **Recorded as still open.**
+
+Reproduce with `runner/measure_decision_cost.py`; the raw per-run timings are released as
+`results/decision_cost.parquet`.
 
 ### A8 — The scaling of benefit with rate-table size is a post-freeze hypothesis
 
