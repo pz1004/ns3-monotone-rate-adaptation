@@ -34,6 +34,29 @@ that regenerate every number and figure in the paper from those outputs.
 | `env/` | The pinned environment, and the sha256 of the ns-3 release used. |
 | `reproduce.sh` | Every runner invocation, recovered and verified (see *Reproducing the runs*). |
 
+### A note on names
+
+The module is called `cqra` and its manager is `ns3::CqrWifiManager`, with flags
+`--cqrMode`, `--cqrStructure`, `--cqrOrder` and so on. That name is a fossil: it stands
+for *calibrated-quantile rate adaptation*, an earlier formulation that was refuted under
+the pre-registered protocol's own criterion and replaced by the method this paper reports.
+Amendment A1 in `docs/protocol.md` records the refutation and the reason for it.
+
+The names were kept because the released data depends on them: arm labels inside
+`results/campaign/full.parquet`, and every invocation in `reproduce.sh`, encode these
+flags. Renaming would have invalidated the data the paper reports against. Read the
+mapping as:
+
+| flag | what it selects |
+|---|---|
+| `--cqrStructure=Monotone --cqrOrder=RequiredSnr` | **the paper's method** — evidence propagated along the required-SNR order |
+| `--cqrStructure=Monotone --cqrOrder=DataRate` | the negative control: same code, ordering by achievable data rate instead |
+| `--cqrStructWeight=0` | propagation off; byte-identical to upstream `ThompsonSamplingWifiManager` |
+| `--cqrMode=Quantile`, `--cqrTargetFer`, `--cqrEta`, `--cqrDecayAdapt` | the abandoned formulation and an unadopted ablation, retained so the negative results remain reproducible |
+
+`ns3::OrsWifiManager` in the same module is unrelated to that history: it is our
+reimplementation of the ORS / SW-ORS / KL-R-UCB baselines.
+
 ---
 
 ## Setup
@@ -41,6 +64,8 @@ that regenerate every number and figure in the paper from those outputs.
 ns-3 is **not** vendored here — it is freely available and pinned by hash.
 
 ```bash
+git clone https://github.com/pz1004/ns3-monotone-rate-adaptation.git
+cd ns3-monotone-rate-adaptation
 conda env create -f environment.yml && conda activate icc2027
 
 # 1. Fetch ns-3.48 and verify it is the release the paper used.
