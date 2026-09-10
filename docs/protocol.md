@@ -92,40 +92,54 @@ with propagation disabled the implementation is byte-identical to
 
 ---
 
-### A1 — 2026-09-08 17:12 — H-main: the mechanism was replaced; the form of the claim was not
+### A1 — 2026-09-08 17:12 — H-main: the rule was refuted and replaced, and the claim narrowed to throughput
 
-**The calibrated-quantile rule named in §1 was refuted under this protocol's own
-refutation criterion, and is withdrawn.** Against the oracle-tuned baseline (`Decay`=2)
-under fading with 4 STAs, 5 seeds, the corrected rule ran 3–5 pp *below* the baseline at
-every speed from 0 to 20 m/s while the selection bias barely moved — which is the second
-of §1's two H-mech refutation conditions ("the bias moves without throughput following, or
-throughput improves without the bias moving").
+**The calibrated-quantile rule named in §1 was refuted under §1's own H-main refutation
+condition, and is withdrawn.** That condition is failure "to dominate the fixed-`Decay`
+frontier in the majority of (speed × channel) cells". Measured against the oracle-tuned
+baseline (`Decay`=2) under fading with 4 STAs, 5 seeds, the corrected rule did not merely
+fail to dominate: it ran 3.0–5.2 pp *below* the baseline at every speed from 0 to 20 m/s.
+
+Note what did **not** happen. §1's H-mech conditions are "throughput improves without the
+bias moving, or the bias moves without throughput following". Neither fired: throughput
+did not improve and the bias did not move. H-mech was therefore not refuted on its own
+terms; it was left with nothing to explain, and is withdrawn with the rule it described
+(A2).
 
 The cause is structural, not a tuning failure, and it determined everything after it:
 **self-calibration on the arm actually played cannot correct a selection error across
 arms.** Thompson's posterior is already approximately calibrated on the arms it plays, so
 the calibration error is near zero and the quantile level has no gradient. But the bias
-against the genie is an *off-policy* quantity — the genie would have played a different
+against the genie is an *off-policy* quantity — the genie would have played a *different*
 arm — and no signal derived only from the played arm can observe it.
 
 **Replacement.** H-main is now tested for *monotone evidence propagation ordered by
 required SNR*: each outcome is shared along the rate order, a failure at rate *r* adding
 `w × nFail` to every rate needing more SNR and a success adding `w × nSucc` to every rate
 needing less, with the target discounted before the addition so inferred evidence ages on
-the same schedule as observed evidence. The order comes from
-`WifiPhy::CalculateSnr(txVector, 1e-6)`.
+the same schedule as observed evidence. The order comes from `WifiPhy::CalculateSnr` at
+the `BerThreshold` attribute, whose default of 1e-6 matches `IdealWifiManager`, so the
+ordering is derived the same way the genie derives its own rate thresholds.
 
-**Why the pre-registration still binds.** The *form* of H-main is unchanged and is what
-the paper reports against: one fixed configuration dominating the entire swept
-fixed-`Decay` frontier, on held-out speeds, refuted if it fails to dominate in the
-majority of (speed × channel) cells with non-overlapping CIs. §4's statistics are
-unchanged. What changed is the rule being tested, not the test.
+**What did not change.** The dominance structure is exactly as frozen, and is what the
+paper reports against: one fixed configuration, not told the mobility condition, against
+the *entire* swept fixed-`Decay` frontier rather than one tuned point, evaluated on the
+held-out speeds of §5, with §4's seeds, paired tests and Holm correction. The refutation
+condition and the statistics are untouched. This is the part of the pre-registration that
+still constrains the result.
+
+**What did change, beyond the rule itself.** Frozen H-main is a *Pareto* claim on
+**(throughput, frame-error rate)**. The paper's claim is on throughput alone: it makes no
+frame-error-rate claim anywhere. The FER axis went out with the absolute FER target that
+the calibrated-quantile rule needed and the replacement does not (see A7). The delivered
+claim is therefore **narrower than pre-registered** on that axis — dominance on one metric
+where two were promised — and a reader comparing the two should read it that way.
 
 **A weakening a reader should weigh.** The refutation above was measured across speeds
-{0, 2, 5, 10, 20}, which includes the held-out speeds 5 and 20. Because the outcome was
-abandonment rather than selection, no configuration was chosen on held-out data — but the
-decision to change direction was informed by it. Every selection made after this point
-used the tuning split alone (A3).
+{0, 2, 5, 10, 20}, which includes the held-out speeds 5 and 20, and at 5 seeds rather than
+§4's ten. Because the outcome was abandonment rather than selection, no configuration was
+chosen on held-out data — but the decision to change direction was informed by it. Every
+selection made after this point used the tuning split alone (A3).
 
 ### A2 — 2026-09-08 18:55 — H-mech withdrawn and replaced; the replacement is not pre-registered
 
