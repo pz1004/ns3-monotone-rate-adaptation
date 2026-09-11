@@ -164,9 +164,18 @@ the only thing that differs: data rate gives +0.3% (p = 0.70) with the benefit s
 as the table grows (r = −0.59), required SNR gives +16.8% with the benefit growing
 (r = +0.76).
 
-**This replacement was formulated after the data-rate ordering was measured.** It is an
-explanatory hypothesis confirmed by a designed negative control, not a pre-committed
-prediction, and should be read that way. The diagnostic that motivated the original
+**This replacement was formulated after the data-rate ordering was measured.** The
+sequence is on the record: propagation ordered by data rate was measured first, its
+benefit was found to *shrink* as the rate table grew, and the diagnosis that monotonicity
+holds in required SNR rather than data rate was written down as the fix for that result.
+It is therefore an explanatory hypothesis confirmed by a designed negative control, not a
+pre-committed prediction, and should be read that way.
+
+Two dates are involved and the heading carries only the first. The mechanism was replaced
+on 2026-09-08; the *matched* ablation quoted above — which holds weight, speeds, seeds,
+widths and streams fixed and varies only the ordering function — was run on 2026-09-09,
+and its figures supersede the earlier unmatched ones. The numbers here are the matched
+ones, the same the paper reports. The diagnostic that motivated the original
 H-mech is retained and reported; its data is released as `results/diag/bias10.parquet`.
 
 ### A3 — 2026-09-08 17:59 — S2 violation in the first weight sweep: caught, discarded, redone
@@ -257,7 +266,7 @@ They are our reimplementation from the paper's pseudocode, labelled as ours per 
 and ordering were swept on the tuning split and the best member of each family carried
 into the campaign. See `docs/ors_baseline.md`.
 
-### A7 — The five pre-committed secondary metrics: two in the paper, two measured late, one moot
+### A7 — 2026-09-11 — The five pre-committed secondary metrics: two in the paper, two measured late, one moot
 
 §6 pre-commits five secondary metrics. Two are reported in the paper, both in Table I:
 mean-MCS bias against the genie, and extra PHY transmissions per delivered MB. The other
@@ -366,7 +375,7 @@ Reproduce with `runner/measure_decision_cost.py` (the wall-clock bound) and
 `runner/read_decision_cost.py` (the direct measurement); raw timings are released as
 `results/decision_cost.parquet`.
 
-### A8 — The scaling of benefit with rate-table size is a post-freeze hypothesis
+### A8 — 2026-09-10 — The scaling of benefit with rate-table size is a post-freeze hypothesis
 
 The result that the benefit grows with the size of the rate table (+11.2% at 12 rates to
 +17.9% at 72, r = +0.76) is **not pre-registered.** No such hypothesis appears in §1 or
