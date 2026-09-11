@@ -201,6 +201,16 @@ class CqrWifiManager : public WifiRemoteStationManager
                            uint32_t nFail) const;
 
     /**
+     * The propagation itself. Separated from PropagateMonotone so the latter can time it
+     * when CostLog is set. Kept out-of-line deliberately: inlining it into the timing
+     * wrapper would measure a differently-optimised body than the one that actually runs.
+     */
+    void PropagateMonotoneImpl(WifiRemoteStation* st,
+                               size_t idx,
+                               uint32_t nSucc,
+                               uint32_t nFail) const;
+
+    /**
      * Build the ordering used by PropagateMonotone.
      *
      * Ordered by **required SNR**, not by achievable data rate. Monotonicity of success
@@ -271,6 +281,14 @@ class CqrWifiManager : public WifiRemoteStationManager
     uint32_t m_instanceId;                  //!< disambiguates the per-instance log file
     static uint32_t s_instanceCounter;      //!< running count of manager instances
     mutable std::vector<std::string> m_log; //!< buffered decision log
+
+    // Per-decision cost measurement (protocol-v1 §6). Entirely inert unless CostLog is
+    // set: the wrapper branches on m_costLog being empty and calls straight through, so
+    // a normal run executes the same code it always did and results are unaffected.
+    std::string m_costLog;         //!< cost-report path; empty disables measurement
+    mutable uint64_t m_costNs{0};  //!< accumulated nanoseconds inside the propagation
+    mutable uint64_t m_costCalls{0}; //!< number of propagation calls timed
+    mutable uint64_t m_costRates{0}; //!< sum of rate-table sizes over those calls
 
     TracedValue<uint64_t> m_currentRate; //!< Trace rate changes
 };

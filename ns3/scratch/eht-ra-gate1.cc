@@ -119,6 +119,7 @@ main(int argc, char* argv[])
     double cqrTargetFer = 0.10;          // Cqr target frame error rate
     double cqrEta = 0.02;                // Cqr quantile step size
     std::string cqrLog = "";             // Cqr per-decision log path
+    std::string cqrCostLog = "";         // Cqr per-decision cost report path
     std::string cqrStructure = "None";   // Cqr rate-structure sharing: None|Monotone
     double cqrStructWeight = 0.5;        // weight on propagated evidence
     std::string cqrOrder = "RequiredSnr"; // propagation order: RequiredSnr|DataRate
@@ -157,6 +158,7 @@ main(int argc, char* argv[])
     cmd.AddValue("cqrTargetFer", "Cqr target frame error rate", cqrTargetFer);
     cmd.AddValue("cqrEta", "Cqr quantile step size", cqrEta);
     cmd.AddValue("cqrLog", "Cqr per-decision log path", cqrLog);
+    cmd.AddValue("cqrCostLog", "Cqr per-decision cost report path (protocol-v1 sec. 6)", cqrCostLog);
     cmd.AddValue("cqrStructure", "Cqr rate-structure sharing: None|Monotone", cqrStructure);
     cmd.AddValue("cqrStructWeight", "Cqr propagated-evidence weight", cqrStructWeight);
     cmd.AddValue("cqrOrder", "Cqr propagation order: RequiredSnr|DataRate", cqrOrder);
@@ -267,6 +269,7 @@ main(int argc, char* argv[])
                                      "TargetFer", DoubleValue(cqrTargetFer),
                                      "Eta", DoubleValue(cqrEta),
                                      "LogFile", StringValue(cqrLog),
+                                     "CostLog", StringValue(cqrCostLog),
                                      "Structure", StringValue(cqrStructure),
                                      "StructureWeight", DoubleValue(cqrStructWeight),
                                      "Order", StringValue(cqrOrder),

@@ -262,47 +262,58 @@ not:
 - **Per-STA Jain fairness** — not reported, and not recoverable from the released data:
   the scenario logs per-interval *aggregate* throughput only, so obtaining it would require
   re-instrumenting the scenario and re-running.
-- **The policy's own decision cost** — measured 2026-09-10, and **bounded rather than
-  resolved**. See below.
+- **The policy's own decision cost** — **measured and resolved** 2026-09-11. See below.
 
-The first is moot; the second is an outstanding shortfall.
+The first is moot; the second is an outstanding shortfall; the third is now discharged.
 
-#### Decision cost: what was measured, and what it did not settle
+#### Decision cost: resolved by direct instrumentation
 
 §6 expects this cost to be negligible because the policy "is a scalar recursion". That
 described the withdrawn calibrated-quantile rule, whose quantile update is a single scalar
 step. The replacement is not: `PropagateMonotone` walks the entire rate order on every
 outcome, so the cost is linear in rate-table size — the very quantity this paper argues is
-growing (12 rates at 20 MHz / 1 stream to 72 at 80 MHz / 2 streams).
+growing.
 
-**Isolation.** Propagation returns immediately when `StructureWeight` ≤ 0, so the loop can
-be switched on and off without changing behaviour: `w = 0` is compared against
-`w = 1e-12`, which executes the full loop but adds evidence far too small to alter any
-decision. The premise was checked rather than assumed, and it holds exactly — throughput
-differs by **0.000%** at every configuration, so both arms run the identical trajectory
-and any wall-clock difference is the loop and nothing else.
+**First attempt, which failed.** Propagation returns immediately at `StructureWeight` ≤ 0,
+so the loop can be switched on and off without changing behaviour: `w = 0` against
+`w = 1e-12`, which runs the full loop but adds evidence too small to alter a decision. The
+isolation held exactly — throughput differed by 0.000% at every configuration — but the
+cost did not resolve. Over 20 paired seeds every 95% CI straddled zero and two of four
+point estimates were negative: the loop is far below what end-to-end simulation timing can
+distinguish. It yielded only a bound, < 6.6 µs per decision at 72 rates.
 
-**The cost did not resolve.** Across 20 paired seeds at four rate-table sizes, every 95%
-confidence interval on the wall-clock difference straddles zero, two of the four point
-estimates are *negative*, and the regression of cost against table size is not significant
-(slope +97 ns/rate, p = 0.73). The loop is far below what end-to-end simulation timing can
-distinguish; ns-3's per-frame processing dominates it.
+**Resolved by instrumenting the manager.** A `CostLog` attribute, empty by default, times
+the propagation with `steady_clock` and reports accumulated nanoseconds, call count,
+summed rate-table size, and the cost of an empty clock read-pair measured in the same
+binary — so the constant bias every timed call carries is subtracted rather than assumed
+away. Measured over 5 seeds per configuration, 127,727 propagation calls in total:
 
-What the experiment does establish is an upper bound, and a useful one at the
-configuration the paper cares about:
+| rates | calls | ns per decision | decisions/s of airtime | CPU |
+|---|---|---|---|---|
+| 12 | 17,635 | 430 | 353 | 0.015% |
+| 24 | 22,308 | 716 | 446 | 0.032% |
+| 36 | 34,933 | 825 | 699 | 0.058% |
+| 72 | 52,851 | **1,345** | 1,057 | **0.142%** |
 
-| rates | decisions per run | 95% upper bound | per second of airtime |
-|---|---|---|---|
-| 12 | 4,052 | < 5.1 µs/decision | < 0.21% of one core |
-| 72 | 12,209 | < 6.6 µs/decision | < 0.80% of one core |
+The linear structure is confirmed rather than assumed: cost regresses on rate-table size
+at **14.6 ns per rate plus 302 ns fixed** (r = +0.993, p = 0.0074). The per-rate figure is
+larger than a bare floating-point update because each propagated rate calls `Decay()`,
+which evaluates `exp()`.
 
-At 72 rates the manager decides once every 819 µs of airtime, so even at the 95% upper
-bound the policy consumes under 1% of one core. That is enough to say the method is
-deployable, and it is *not* the measurement §6 asked for. Resolving the actual cost needs
-either timing instrumentation inside the manager or hardware instruction counters, which
-are unavailable on this host (`perf_event_paranoid` = 4). **Recorded as still open.**
+**The answer §6 asked for.** At the paper's headline configuration — 80 MHz, two streams,
+72 rates — the policy costs **1.34 µs per decision** and decides once every 946 µs of
+airtime, so it consumes **0.14% of one core**. That is negligible, now by measurement
+rather than by an argument that no longer applied. It is also 4.9x tighter than the bound
+the wall-clock experiment could reach.
 
-Reproduce with `runner/measure_decision_cost.py`; the raw per-run timings are released as
+**Instrumentation is behaviour-neutral, and this was verified, not asserted.** With
+`CostLog` empty the wrapper branches straight through to the same code that always ran.
+On the instrumented build the equivalence gate still passes 27/27 byte-identical, and
+re-running a released slice reproduces every `Mono` run bit-for-bit (30/30, max absolute
+difference 0). No released result changes.
+
+Reproduce with `runner/measure_decision_cost.py` (the wall-clock bound) and
+`runner/read_decision_cost.py` (the direct measurement); raw timings are released as
 `results/decision_cost.parquet`.
 
 ### A8 — The scaling of benefit with rate-table size is a post-freeze hypothesis

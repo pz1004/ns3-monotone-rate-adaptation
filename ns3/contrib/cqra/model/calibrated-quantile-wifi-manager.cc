@@ -22,6 +22,7 @@
 #include "ns3/string.h"
 #include "ns3/enum.h"
 
+#include <chrono>
 #include <cmath>
 #include <algorithm>
 #include <utility>
@@ -157,6 +158,13 @@ CqrWifiManager::GetTypeId()
                           DoubleValue(0.5),
                           MakeDoubleAccessor(&CqrWifiManager::m_structWeight),
                           MakeDoubleChecker<double>(0.0, 1.0))
+            .AddAttribute("CostLog",
+                          "Path for the per-decision cost report (protocol-v1 §6). Empty "
+                          "disables measurement entirely, which is the default: with it "
+                          "empty the propagation runs exactly as it always has.",
+                          StringValue(""),
+                          MakeStringAccessor(&CqrWifiManager::m_costLog),
+                          MakeStringChecker())
             .AddAttribute("BerThreshold",
                           "Target BER used to derive the required-SNR ordering for "
                           "monotone propagation. Matches IdealWifiManager's default so "
@@ -234,6 +242,26 @@ CqrWifiManager::~CqrWifiManager()
         {
             f << l << "\n";
         }
+        f.close();
+    }
+    if (!m_costLog.empty() && m_costCalls > 0)
+    {
+        // Calibrate the clock-read pair in the same binary, on the same clock, so the
+        // constant bias each timed call carries can be subtracted by the analysis rather
+        // than assumed away. 200k samples costs a few ms and runs once per manager.
+        uint64_t pairNs = 0;
+        constexpr int kCal = 200000;
+        for (int i = 0; i < kCal; ++i)
+        {
+            const auto a = std::chrono::steady_clock::now();
+            const auto b = std::chrono::steady_clock::now();
+            pairNs += static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count());
+        }
+        std::ofstream f(m_costLog + "." + std::to_string(m_instanceId));
+        f << "calls,total_ns,sum_rates,clock_pair_ns_x1e6\n";
+        f << m_costCalls << "," << m_costNs << "," << m_costRates << ","
+          << (pairNs * 1000000ULL / kCal) << "\n";
         f.close();
     }
 }
@@ -770,6 +798,28 @@ CqrWifiManager::PropagateMonotone(WifiRemoteStation* st,
                                   size_t idx,
                                   uint32_t nSucc,
                                   uint32_t nFail) const
+{
+    // Measurement is off unless CostLog is set, and then it only wraps the call: the
+    // propagation body below is byte-for-byte the code that runs in a normal simulation.
+    if (m_costLog.empty())
+    {
+        PropagateMonotoneImpl(st, idx, nSucc, nFail);
+        return;
+    }
+    const auto t0 = std::chrono::steady_clock::now();
+    PropagateMonotoneImpl(st, idx, nSucc, nFail);
+    const auto t1 = std::chrono::steady_clock::now();
+    m_costNs += static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count());
+    ++m_costCalls;
+    m_costRates += static_cast<CqrWifiRemoteStation*>(st)->m_mcsStats.size();
+}
+
+void
+CqrWifiManager::PropagateMonotoneImpl(WifiRemoteStation* st,
+                                      size_t idx,
+                                      uint32_t nSucc,
+                                      uint32_t nFail) const
 {
     if (m_structure != CQR_MONOTONE || m_structWeight <= 0.0)
     {
