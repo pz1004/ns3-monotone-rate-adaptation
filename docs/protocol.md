@@ -250,21 +250,64 @@ They are our reimplementation from the paper's pseudocode, labelled as ours per 
 and ordering were swept on the tuning split and the best member of each family carried
 into the campaign. See `docs/ors_baseline.md`.
 
-### A7 — Three of the five pre-committed secondary metrics are not reported
+### A7 — The five pre-committed secondary metrics: two in the paper, two measured late, one moot
 
-§6 pre-commits five secondary metrics. Two are reported (both in Table I of the paper):
-mean-MCS bias against the genie, and extra PHY transmissions per delivered MB. Three are
-not:
+§6 pre-commits five secondary metrics. Two are reported in the paper, both in Table I:
+mean-MCS bias against the genie, and extra PHY transmissions per delivered MB. The other
+three were all missing when the pre-submission audit began:
 
 - **Realised frame-error rate against the target** — no longer defined. The absolute FER
   target was removed with the calibrated-quantile rule (A1), so there is no target to miss,
   and §7's guard requiring it to be reported is moot for the same reason.
-- **Per-STA Jain fairness** — not reported, and not recoverable from the released data:
-  the scenario logs per-interval *aggregate* throughput only, so obtaining it would require
-  re-instrumenting the scenario and re-running.
+- **Per-STA Jain fairness** — **measured** 2026-09-11. See below.
 - **The policy's own decision cost** — **measured and resolved** 2026-09-11. See below.
 
-The first is moot; the second is an outstanding shortfall; the third is now discharged.
+The first is moot. The second and third are now discharged; both were outstanding until
+the pre-submission audit and both required instrumenting the simulation, so each records
+below what was added and how it was shown not to disturb the released results.
+
+#### Per-STA Jain fairness: measured
+
+This went unreported because the data to compute it did not exist: the scenario logged
+per-interval *aggregate* throughput, with no per-station breakdown. The scenario now
+accepts `--perStaOut`, which records each sink's per-interval delta. That is pure
+observation — `Sample()` already called `GetTotalRx()` on every sink to build the
+aggregate, so recording the per-sink values adds no simulator interaction. Checked, not
+assumed: the per-STA deltas sum to the aggregate delta exactly, in every interval of every
+run.
+
+Jain's index over per-STA delivered bytes, `J = (Σx)² / (n·Σx²)`, on the held-out speeds
+{1, 5, 20} m/s, both channels, 10 seeds — 360 runs, 0 failures:
+
+| arm | 4 STAs | 8 STAs |
+|---|---|---|
+| Minstrel-HT | 0.902 ± 0.038 | 0.781 ± 0.057 |
+| Thompson (tuned) | 0.959 ± 0.022 | 0.933 ± 0.025 |
+| **proposed** | **0.961 ± 0.021** | **0.930 ± 0.026** |
+
+**The method does not trade fairness for throughput.** Paired at matched
+(contention, channel, speed, seed), it is indistinguishable from the Thompson baseline it
+is built on: mean difference −0.0002, 95% CI [−0.0071, +0.0068], p = 0.96, n = 120. It is
+substantially fairer than Minstrel-HT: +0.105, p = 5×10⁻¹¹.
+
+**Reported honestly: 70 of the 360 runs starve a station completely**, and that is worth
+stating rather than hiding behind a healthy mean. They are concentrated almost entirely at
+20 m/s — the single exception is Minstrel-HT at 8 STAs and 5 m/s. The proposed method has
+the fewest (17, against 24 for Thompson and 29 for Minstrel-HT), but it does not eliminate
+them. Fairness for the proposed method by speed:
+
+| STAs | 1 m/s | 5 m/s | 20 m/s |
+|---|---|---|---|
+| 4 | 0.999 | 0.990 | 0.895 |
+| 8 | 0.996 | 0.983 | 0.812 |
+
+This is the same boundary the paper already reports from the throughput side: at 20 m/s
+adaptation is losing to a static rate chosen in hindsight, and here it is also failing to
+keep every station served. The two findings are the same phenomenon seen through different
+metrics, and neither is specific to this method.
+
+Reproduce with `runner/measure_fairness.py`; per-run indices are released as
+`results/fairness/jain.parquet`.
 
 #### Decision cost: resolved by direct instrumentation
 

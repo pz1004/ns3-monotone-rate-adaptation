@@ -47,6 +47,11 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE("EhtRaGate1");
 
 static std::vector<Ptr<PacketSink>> g_sinks;
+// Per-STA throughput sampling (protocol-v1 §6, per-STA Jain fairness). Pure observation:
+// Sample() already calls GetTotalRx() on every sink to form the aggregate, so recording
+// the per-sink deltas adds no simulator interaction and cannot affect the run.
+static std::ofstream g_perStaOut;
+static std::vector<uint64_t> g_lastPerSta;
 static uint64_t g_lastTotal = 0;
 static std::ofstream g_out;
 static double g_interval = 0.5;
@@ -72,9 +77,22 @@ void
 Sample()
 {
     uint64_t total = 0;
-    for (auto& s : g_sinks)
+    const bool perSta = g_perStaOut.is_open();
+    if (perSta && g_lastPerSta.size() != g_sinks.size())
     {
-        total += s->GetTotalRx();
+        g_lastPerSta.assign(g_sinks.size(), 0);
+    }
+    for (size_t i = 0; i < g_sinks.size(); ++i)
+    {
+        const uint64_t rx = g_sinks[i]->GetTotalRx();
+        total += rx;
+        if (perSta)
+        {
+            g_perStaOut << std::fixed << std::setprecision(4)
+                        << Simulator::Now().GetSeconds() << "," << i << ","
+                        << (rx - g_lastPerSta[i]) << "\n";
+            g_lastPerSta[i] = rx;
+        }
     }
     const uint64_t delta = total - g_lastTotal;
     g_lastTotal = total;
@@ -107,6 +125,7 @@ main(int argc, char* argv[])
     std::string mobility = "linear";     // static|linear
     uint32_t seed = 1;
     std::string outFile = "gate1.csv";
+    std::string perStaFile = "";        // per-STA throughput, for Jain fairness
     bool printMinstrelStats = false;
     std::string rateLog = "";           // if set, write MCS-usage summary here
     uint32_t payload = 1400;
@@ -145,6 +164,7 @@ main(int argc, char* argv[])
     cmd.AddValue("mobility", "static|linear", mobility);
     cmd.AddValue("seed", "RNG run number", seed);
     cmd.AddValue("out", "Output CSV path", outFile);
+    cmd.AddValue("perStaOut", "Per-STA throughput CSV (protocol-v1 sec. 6 Jain fairness); empty disables", perStaFile);
     cmd.AddValue("interval", "Sampling interval (s)", g_interval);
     cmd.AddValue("printMinstrelStats", "Dump Minstrel-HT stats tables", printMinstrelStats);
     cmd.AddValue("rateLog", "Write per-run MCS/width/Nss usage summary here", rateLog);
@@ -371,6 +391,11 @@ main(int argc, char* argv[])
 
     g_out.open(outFile);
     g_out << "time_s,distance_m,rx_bytes,throughput_mbps\n";
+    if (!perStaFile.empty())
+    {
+        g_perStaOut.open(perStaFile);
+        g_perStaOut << "time_s,sta,rx_bytes\n";
+    }
     g_staNode0 = staNodes.Get(0);
     g_apNode = apNode.Get(0);
     Simulator::Schedule(Seconds(0.5 + g_interval), &Sample);
