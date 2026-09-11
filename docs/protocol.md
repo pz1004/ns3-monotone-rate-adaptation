@@ -123,10 +123,17 @@ ordering is derived the same way the genie derives its own rate thresholds.
 
 **What did not change.** The dominance structure is exactly as frozen, and is what the
 paper reports against: one fixed configuration, not told the mobility condition, against
-the *entire* swept fixed-`Decay` frontier rather than one tuned point, evaluated on the
-held-out speeds of §5, with §4's seeds, paired tests and Holm correction. The refutation
-condition and the statistics are untouched. This is the part of the pre-registration that
-still constrains the result.
+the *entire* swept fixed-`Decay` frontier rather than one tuned point, with §4's ten
+seeds, paired tests and Holm correction. The refutation condition and the statistics are
+untouched. This is the part of the pre-registration that still constrains the result.
+
+One detail a reader should not have to reconstruct from the data: the configuration
+(w = 0.25) was selected on the tuning speeds alone (A3), but the dominance claim is then
+evaluated across the **full** swept range — all six speeds, tuning speeds included — not
+on the held-out three. The held-out-only comparison is a separate, narrower table. That is
+not a split violation, since nothing was selected on held-out data, but §5 says the
+headline claim is made on S2–S4, and the breadth of the campaign is wider than that split
+rather than confined to it.
 
 **What did change, beyond the rule itself.** Frozen H-main is a *Pareto* claim on
 **(throughput, frame-error rate)**. The paper's claim is on throughput alone: it makes no
