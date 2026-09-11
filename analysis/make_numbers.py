@@ -41,6 +41,41 @@ put("StarveBigPct", f"{be.pct.iloc[0]:.1f}")
 put("StarveBigN",   f"{int(be.n_rates.iloc[0])}")
 put("StarveCorr",   f"{np.corrcoef(t.n_rates, t.pct)[0,1]:.2f}")
 
+# ---------- per-STA Jain fairness (protocol-v1 §6 secondary metric) ----------
+# Held-out speeds, both channels, 10 seeds. The index is computed per run from the
+# per-STA delivered bytes; this reads the released per-run indices, it does not recompute
+# them, so the paper and the artifact cannot disagree about what was measured.
+jf = pd.read_parquet(f"{R}/fairness/jain.parquet")
+_by = jf.groupby(["arm", "nsta"]).jain.mean()
+put("JainOursFour",  f"{_by[('proposed', 4)]:.2f}")
+put("JainOursEight", f"{_by[('proposed', 8)]:.2f}")
+put("JainMinstrelFour",  f"{_by[('Minstrel-HT', 4)]:.2f}")
+put("JainMinstrelEight", f"{_by[('Minstrel-HT', 8)]:.2f}")
+
+_k = ["nsta", "channel", "speed", "seed"]
+_p = jf[jf.arm == "proposed"].set_index(_k).jain
+_t = jf[jf.arm == "Thompson"].set_index(_k).jain
+_m = jf[jf.arm == "Minstrel-HT"].set_index(_k).jain
+_d = (_p - _t).dropna()
+assert len(_d) == 120, f"paired fairness comparison lost rows: {len(_d)}"
+# A signed mean that rounds to -0.000 tells a reader nothing; the informative
+# quantity is how tightly the difference is bounded.
+put("JainCIThompson", f"{1.96 * _d.sem():.3f}")
+put("JainPThompson",  f"{stats.ttest_rel(_p.loc[_d.index], _t.loc[_d.index]).pvalue:.2f}")
+_dm = (_p - _m).dropna()
+put("JainVsMinstrel", f"{_dm.mean():+.2f}")
+
+# Fairness at the speed where every scheme breaks down, and the starvation count.
+put("JainOursFast", f"{jf[(jf.arm=='proposed') & (jf.nsta==8) & (jf.speed==20)].jain.mean():.2f}")
+_z = jf[jf.min_share == 0]
+putn("StarvedRuns", len(_z)); putn("StarvedTotal", len(jf))
+for _a, _n in (("proposed", "Ours"), ("Thompson", "Thompson"), ("Minstrel-HT", "Minstrel")):
+    putn(f"Starved{_n}", int((_z.arm == _a).sum()))
+# The claim in the prose is that starvation is a high-mobility phenomenon, not a
+# property of any one scheme. Check it rather than print it on trust.
+assert (_z.speed >= 5).all(), "starvation appears below 5 m/s; the prose says it does not"
+putn("StarvedFastPct", int(round(100 * (_z.speed == 20).mean())))
+
 # ---------- selection bias (ten seeds) ----------
 b = pd.read_parquet(f"{R}/diag/bias10.parquet")
 idl = b[b.arm=="Ideal"][["speed","seed","mean_mcs","tx_per_MB"]].rename(
