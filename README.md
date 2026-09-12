@@ -14,7 +14,7 @@ This repository contains the module, the scenario, the runners, the pre-register
 protocol, the raw per-run outputs of all 11,520 campaign simulations, and the scripts
 that regenerate every number and figure in the paper from those outputs.
 
-> **Paper:** *(add the DOI / arXiv link here once available)*
+> **Paper:** submitted to IEEE ICC 2027, *SAC: Machine Learning for Communications and Networking*. Not yet peer-reviewed.
 >
 > **Cite:** see `CITATION.cff`.
 
