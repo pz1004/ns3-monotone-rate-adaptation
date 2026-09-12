@@ -15,6 +15,7 @@ protocol, the raw per-run outputs of all 11,520 campaign simulations, and the sc
 that regenerate every number and figure in the paper from those outputs.
 
 > **Paper:** *(add the DOI / arXiv link here once available)*
+>
 > **Cite:** see `CITATION.cff`.
 
 ---
@@ -29,8 +30,8 @@ that regenerate every number and figure in the paper from those outputs.
 | `analysis/` | The campaign analyses, and the three generators that produce every table and figure in the paper. |
 | `results/` | All released run outputs (~13 MB). `campaign/full.parquet` is the 11,520-run campaign. |
 | `logs/` | The 19 run logs, each ending in the row count and destination of its campaign. |
-| `docs/protocol.md` | The evaluation protocol, frozen before the method was tuned. **Read `docs/protocol.md` before the results.** |
-| `docs/ors_baseline.md` | How the ORS family was reimplemented, and the fairness decisions taken. |
+| [`docs/protocol.md`](docs/protocol.md) | The evaluation protocol, frozen before the method was tuned. **Read [`docs/protocol.md`](docs/protocol.md) before the results.** |
+| [`docs/ors_baseline.md`](docs/ors_baseline.md) | How the ORS family was reimplemented, and the fairness decisions taken. |
 | `env/` | The pinned environment, and the sha256 of the ns-3 release used. |
 | `reproduce.sh` | Every runner invocation, recovered and verified (see *Reproducing the runs*). |
 
@@ -40,7 +41,7 @@ The module is called `cqra` and its manager is `ns3::CqrWifiManager`, with flags
 `--cqrMode`, `--cqrStructure`, `--cqrOrder` and so on. That name is a fossil: it stands
 for *calibrated-quantile rate adaptation*, an earlier formulation that was refuted under
 the pre-registered protocol's own criterion and replaced by the method this paper reports.
-Amendment A1 in `docs/protocol.md` records the refutation and the reason for it.
+Amendment A1 in [`docs/protocol.md`](docs/protocol.md) records the refutation and the reason for it.
 
 The names were kept because the released data depends on them: arm labels inside
 `results/campaign/full.parquet`, and every invocation in `reproduce.sh`, encode these
@@ -169,7 +170,7 @@ Cost: the main campaign is 11,520 runs, 24 workers, zero failures — see `logs/
 
 ## Pre-registration
 
-`docs/protocol.md` fixes the metrics, seed count, statistical tests and the
+[`docs/protocol.md`](docs/protocol.md) fixes the metrics, seed count, statistical tests and the
 tune/evaluate splits. It was frozen and version-tagged before the method was tuned, and
 the hyperparameter search that followed touched only the tuning split.
 
