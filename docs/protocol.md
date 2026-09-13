@@ -1090,3 +1090,56 @@ spot: it does not read captions against prose written later, it does not see typ
 it does not notice that three numbers in one paragraph invite an arithmetic a reader will
 attempt. Compiling and reading the whole document is a distinct check, and it found four
 things twenty-one amendments of section auditing had not.
+
+#### A9.23 — §III attributed two numbers to the wrong party, and claimed a monotonicity its own sweep refutes
+
+*2026-09-13. Exploratory re-read of §III after the preceding twenty-two amendments had
+changed most of the section around it. Six corrections; no measurement changes.*
+
+**1. The transmission-excess figures were swapped.** §III read "Its extra transmissions
+there are small in absolute terms — 9 MPDU/MB above the 714 floor …, against the sampler's
+72". `ExcGenieVzero` = 9 is the **genie's** excess and `ExcThomVzero` = 72 is the
+**sampler's** (`make_numbers.py`, `m["exc_i"]` / `m["exc_t"]`; confirmed from
+`diag/bias10.parquet` at 8.51 and 71.87). "Its" takes the sampler as antecedent from the two
+preceding clauses, so the sentence assigned the sampler both figures; resolving "Its" to the
+genie instead made the following clause — "they are exploration, not lag" — credit
+exploration to a reference the same paragraph says never explores. The two are now named
+explicitly and in the right order.
+
+**2. "Forgetting faster pushes selection up the table at every speed" is not monotone.**
+True end to end — bias at λ=100 exceeds bias at λ=0 at all six swept speeds — but at
+1, 2 and 5 m/s raising λ from zero first pushes selection **down**, by 0.50, 1.16 and 0.87
+MCS steps against 95% CIs of 0.10–0.15. (10 m/s dips by 0.04, inside its interval, and is
+counted as monotone.) The existing hedge — "a tendency rather than a determinate choice,
+since selection remains randomised" — covers the stochasticity of a single draw, not a
+systematic reversal across half the sweep. This is the A9.20 failure mode a second time: a
+claim about the shape of a curve that the released curve does not have.
+
+The prose now states the endpoint claim and the non-monotonicity separately, which
+strengthens the paragraph — λ being a non-monotone instrument is a better argument for "one
+direction of adjustment is a poor instrument" than the monotone version was.
+`make_numbers.py` now asserts the endpoint claim and emits the dipping speeds as
+`\NumLamDipSpeeds`, so neither half can drift from the data again.
+
+**3. The genie's channel width was presented as a choice.** §III contrasted "the genie runs
+80 MHz … against the sampler's 68 MHz" as a difference in selected configuration shape. Per
+A9.14 the genie does not enumerate widths at all: it ranges over 28 of the 84 configurations
+and never drops below 79.8 MHz in any run. §V discloses this; §III, which is read first, did
+not, and its own list of genie caveats named the delayed-feedback limitation but not this
+one — the one that matters four lines later. The width is now stated as the fixed level the
+genie never narrows from, so the narrowing is attributed to the sampler alone. The streams
+comparison (1.90 against 1.72) is unchanged and remains a genuine choice contrast, since the
+genie does search streams.
+
+**4–6. Three smaller ones.** "Only at λ=50 Hz does the resting error vanish" → "Not until":
+λ=100 also leaves it non-negative (+0.06), and the generator takes the smallest such λ.
+"The starvation claim of Sec. I" → "Sec. I's evidence-thinning claim": §I never uses the
+word, so the cross-reference named a claim the target does not make. "changing sign at
+roughly walking pace" → "between 2 and 5 m/s": the interpolated crossing is ≈2.5 m/s, about
+twice walking pace, and the table's own granularity is the honest statement.
+
+Findings 1–3 are all label errors rather than value errors — which party a number belongs
+to, what shape a curve has, whether a quantity was chosen or fixed. `check_paper.py`
+verifies that 9 and 72 are the right numbers and cannot verify which party owns each. That
+is the same blind spot A9.15 and A9.20 recorded; the durable fix remains emitting identities
+and shapes as macros and assertions, which finding 2 now does.

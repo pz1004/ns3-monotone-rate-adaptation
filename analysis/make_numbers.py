@@ -425,6 +425,23 @@ _lff = _bp[20.0].idxmin()
 _ff  = _bj[(_bj.speed == 20.0) & (_bj.lam == _lff)].bias
 put("BiasFastFloor",   f"{_bp.loc[_lff, 20.0]:+.2f}")
 put("BiasFastFloorCI", f"{1.96*_ff.std(ddof=1)/np.sqrt(len(_ff)):.2f}")
+# Sec. III said forgetting faster pushes selection up "at every speed". That is true END
+# TO END across the swept lambda, but the path is not monotone: at the intermediate speeds
+# the bias first falls, by far more than the interval allows. The prose asserted the
+# monotone reading, which this same sweep refutes (protocol-v1 amendment A9.23). Pin both
+# halves -- the endpoint claim as an assertion, the dipping speeds as a macro -- so neither
+# the claim nor the list of speeds can drift out of agreement with the data again.
+_lo_l, _hi_l = _bp.index.min(), _bp.index.max()
+assert (_bp.loc[_hi_l] > _bp.loc[_lo_l]).all(), \
+    "Sec. III: faster forgetting must raise selection at every speed end to end"
+def _dip_ci(sp, l):
+    v = _bj[(_bj.speed == sp) & (_bj.lam == l)].bias
+    return 1.96 * v.std(ddof=1) / np.sqrt(len(v))
+_dips = [sp for sp in _bp.columns
+         if _bp[sp].loc[_lo_l] - _bp[sp].min() > _dip_ci(sp, _bp[sp].idxmin())]
+assert _dips, "Sec. III claims a non-monotone dip; no speed shows one outside its CI"
+put("LamDipSpeeds", ", ".join(f"{v:g}" for v in _dips))
+putn("LamDipN", len(_dips))
 
 # ---------- unstructured KL-R-UCB vs structured ORS ----------
 # Sec. VI-B called this "consistent". It is not: it reverses in one cell. On the 84-arm
