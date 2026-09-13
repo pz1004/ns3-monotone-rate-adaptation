@@ -968,3 +968,52 @@ al.'s graphical variant and sliding-window extension, the WNS3 verification's 80
 convergence finding, DARA's 15% over Minstrel-HT — rest on the survey record from the
 planning phase, not on re-reading those papers in this audit. They are consistent with that
 record; they were not independently re-checked here.
+
+#### A9.20 — The baseline's crossover was read off a curve that crosses unity twice
+
+Added 2026-09-13, during a read-through of §VI-C.
+
+§VI-C reported that, against a per-speed static rate chosen in hindsight, "adaptation stops
+paying at **0.5 m/s** for the Thompson baseline and 9.3 m/s for our method". Both `cross()`
+in `make_numbers.py` and `crossing()` in `make_figs.py` returned the **first** downward
+crossing of unity. The Thompson ratio curve is not monotone:
+
+| speed (m/s) | 0 | 1 | 2 | 3 | 5 | 7 | 10 | 15 | 20 |
+|---|---|---|---|---|---|---|---|---|---|
+| Thompson / hindsight static | 1.012 | **0.985** | **1.030** | 0.994 | 0.888 | 0.813 | 0.760 | 0.693 | 0.611 |
+| ours / hindsight static | 1.035 | 1.033 | 1.170 | 1.136 | 1.087 | 1.038 | **0.989** | 0.946 | 0.901 |
+
+It falls below unity between 0 and 1 m/s, **comes back above at 2 m/s**, and only stays
+below after 3 m/s. So 0.5 m/s is a speed at which the baseline demonstrably beats the static
+reference two measurements later, reported as the speed above which it stops paying.
+
+Both functions now take the **last** downward crossing — the one the curve does not recover
+from, which is what the section's question asks for — and assert the ratio stays below unity
+above it. The Thompson crossover becomes **2.8 m/s**, bracket [2, 3]. Ours is unchanged at
+**9.3 m/s**, bracket [7, 10]: its curve crosses unity exactly once, and `make_numbers.py`
+now asserts that, since our figure is only a boundary if it does.
+
+The contrast shrinks from roughly 20x to 3.3x. The manuscript never quoted that ratio — it
+said the baseline's small value made it unstable — so no reported ratio changes, and the
+reason for the caution is now the right one: non-monotonicity, not smallness. §VI-C states
+how many times the baseline's curve falls through unity.
+
+**The figure cross-check earned its keep.** `make_figs.py` carries its own copy of the
+crossing logic and is verified against `numbers.tex` before the PNG is written. Fixing only
+the generator produced `DRIFT crossover, Thompson figure=+0.45 numbers.tex=2.8` and
+`check_paper.py` refused to pass. Two independent implementations of the same rule, checked
+against each other, caught a half-finished fix that a single implementation would have
+hidden.
+
+Everything else checked in §VI-C holds, and is recorded so it is not re-derived:
+
+- **The 7 m/s bracket is a real measurement.** The threshold sweep runs a denser speed grid
+  than the campaign — {0, 1, 2, 3, 5, 7, 10, 15, 20} — so interpolating between 7 and 10 m/s
+  uses two tested points. (An earlier draft interpolated across 10 to 15 with nothing
+  between; that is what A9.7 corrected.)
+- **Fairness and starvation.** 66 of 360 runs starve a station: 12 ours, 25 Thompson, 29
+  Minstrel-HT, summing exactly to 66; 63 of the 66 (95.5%) are at 20 m/s. Jain is 0.977 at
+  four recipients and 0.937 at eight over the held-out speeds, and 0.825 at eight stations
+  at 20 m/s. All match the manuscript.
+- **Provenance.** `results/fairness/jain.parquet` is from the 84-arm re-run, and
+  `measure_fairness.py` passes `--modFamily`. The fairness claims are on the corrected table.

@@ -508,23 +508,44 @@ orc = tf.sort_values("thr").groupby(["speed","seed"]).tail(1).rename(columns={"t
 # The crossover is an interpolation between TESTED speeds, and the bracket matters: it
 # is not a measured boundary (protocol-v1 amendment A9.7). Emit the bracket so the paper
 # can state it rather than implying a resolution the sweep does not have.
-def cross_bracket(arm):
+def _ratio(arm):
     a = th[th.arm == arm].groupby(["speed", "seed"]).thr.sum().rename("ad").reset_index()
     j = a.merge(orc, on=["speed", "seed"]).groupby("speed").mean(numeric_only=True)
-    x, y = j.index.values, (j.ad / j.ref).values
+    return j.index.values, (j.ad / j.ref).values
+
+def _cross_index(arm):
+    """Index of the LAST downward crossing of unity, not the first.
+
+    Sec. VI-C asks above which speed adaptation stops paying, so the answer is the
+    crossing it never comes back from. Taking the FIRST crossing gave the Thompson
+    baseline 0.5 m/s, but its ratio curve is non-monotone -- 1.012, 0.985, 1.030,
+    0.994 at 0, 1, 2, 3 m/s -- so it recovers at 2 m/s and only stays below after
+    3 m/s. The paper reported a speed the baseline demonstrably beats (A9.20).
+    """
+    x, y = _ratio(arm)
+    last = None
     for i in range(len(x) - 1):
         if y[i] >= 1.0 > y[i + 1]:
-            return x[i], x[i + 1], y[i], y[i + 1]
-    return (float("nan"),) * 4
+            last = i
+    if last is None:
+        return None, x, y
+    assert all(v < 1.0 for v in y[last + 1:]), f"{arm} returns above unity after its last crossing"
+    return last, x, y
+
+def cross_bracket(arm):
+    i, x, y = _cross_index(arm)
+    return (float("nan"),) * 4 if i is None else (x[i], x[i + 1], y[i], y[i + 1])
 
 def cross(arm):
-    a = th[th.arm==arm].groupby(["speed","seed"]).thr.sum().rename("ad").reset_index()
-    j = a.merge(orc,on=["speed","seed"]).groupby("speed").mean(numeric_only=True)
-    x,y = j.index.values, (j.ad/j.ref).values
-    for i in range(len(x)-1):
-        if y[i]>=1.0>y[i+1]:
-            return x[i]+(1.0-y[i])/(y[i+1]-y[i])*(x[i+1]-x[i])
-    return float("nan")
+    i, x, y = _cross_index(arm)
+    if i is None:
+        return float("nan")
+    return x[i] + (1.0 - y[i]) / (y[i + 1] - y[i]) * (x[i + 1] - x[i])
+
+def crossings(arm):
+    """How many times the curve falls through unity; >1 means the estimate is fragile."""
+    _, y = _ratio(arm)
+    return sum(1 for i in range(len(y) - 1) if y[i] >= 1.0 > y[i + 1])
 put("CrossOurs", f"{cross('Mono(w=0.25)'):.1f}")
 _lo, _hi, _ylo, _yhi = cross_bracket("Mono(w=0.25)")
 put("CrossOursLo", f"{_lo:g}"); put("CrossOursHi", f"{_hi:g}")
@@ -534,6 +555,8 @@ put("CrossThompsonLo", f"{_tlo:g}"); put("CrossThompsonHi", f"{_thi:g}")
 put("CrossThompson", f"{cross('Thompson(d=2.0)'):.1f}")
 put("CrossRatio", f"{cross('Mono(w=0.25)')/cross('Thompson(d=2.0)'):.1f}")
 put("CrossOursRound", f"{cross('Mono(w=0.25)'):.0f}")
+putn("CrossThompsonN", crossings("Thompson(d=2.0)"))
+assert crossings("Mono(w=0.25)") == 1, "ours must cross unity once for its crossover to be a boundary"
 
 # ---------- adaptive-decay ablation ----------
 ad = pd.read_parquet(f"{R}/adaptdecay/tune.parquet")

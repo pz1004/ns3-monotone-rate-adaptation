@@ -149,10 +149,21 @@ def curve(arm, col):
     return j.index.values, (j.ad / j[col]).values
 
 def crossing(x, y):
+    """The LAST downward crossing of unity, matching make_numbers.py (A9.20).
+
+    Taking the first one gave the Thompson baseline 0.5 m/s, a speed at which its
+    curve is back above the static reference two points later. The question is
+    where adaptation stops paying for good, so it is the crossing it never
+    recovers from.
+    """
+    last = None
     for i in range(len(x) - 1):
         if y[i] >= 1.0 > y[i + 1]:
-            return x[i] + (1.0 - y[i]) / (y[i + 1] - y[i]) * (x[i + 1] - x[i])
-    return float("nan")
+            last = i
+    if last is None:
+        return float("nan")
+    i = last
+    return x[i] + (1.0 - y[i]) / (y[i + 1] - y[i]) * (x[i + 1] - x[i])
 
 xo, yo = curve("Mono(w=0.25)", "oracle")
 xt, yt = curve("Thompson(d=2.0)", "oracle")
