@@ -689,3 +689,54 @@ the ordering key alone.
 
 Neither the tie-break nor this check appears in the frozen protocol. Both are
 **exploratory**, and no reported number changes because of either.
+
+#### A9.14 — `IdealWifiManager` does not enumerate channel widths
+
+Added 2026-09-13, during a read-through of §V.
+
+A9.1 put the genie and the learners on the same MCS range. It did not put them on the same
+action set, and the manuscript claimed it had: §V described the 84-tuple set as "the table
+`IdealWifiManager` and the static references already use".
+
+`IdealWifiManager::DoGetDataTxVector` fixes the width once, before the search:
+
+```cpp
+const auto channelWidth = std::min(GetChannelWidth(station), allowedWidth);
+txVector.SetChannelWidth(channelWidth);
+```
+
+and then iterates modes and spatial streams only. The other two `SetChannelWidth` calls in
+that file are in `BuildSnrThresholds` (threshold-table construction) and the non-HT path;
+neither is selection. **The genie's candidate set is 14 MCS × 2 streams = 28 at the granted
+width, not 84.** It cannot narrow its channel.
+
+Confirmed in the released data: across all 360 `Ideal` runs in the campaign, mean selected
+width ranges over 79.787–79.988 MHz and never falls further, while `Thompson(d=2.0)` reaches
+60.2 MHz and `Mono(w=0.25)` 76.0 MHz. The genie's 80 MHz is structural, not a preference.
+
+Three corrections follow:
+
+1. **§V no longer claims a shared table with the genie.** The learners share one 84-tuple
+   set by construction; `IdealWifiManager` and Minstrel-HT are the two unmatched arms, and
+   both are now disclosed. Minstrel-HT's table is larger (it sweeps guard interval); the
+   genie's is smaller.
+2. **§III no longer reads the genie's width as a choice.** "no longer *choosing* the same
+   shape of configuration" became "without *transmitting* the same shape". The measurement
+   is unchanged, and the PHY-rate column added under A9.3 already carries the comparison
+   that the MCS index cannot.
+3. **The anomaly the paper reported without explaining now has a mechanism.** §V states
+   that our method exceeds `IdealWifiManager`, which is why it is treated as a genie rather
+   than a bound. A genie that cannot narrow its channel is a concrete reason it is
+   exceedable, and that clause now sits where the claim is made.
+
+No reported number changes: every figure in the paper is measured, and the genie's behaviour
+is what it always was. What changes is the description of its action set. This is
+**exploratory** — the frozen protocol pre-registers `Ideal` as the reference but says
+nothing about its enumeration.
+
+Two further checks on §V were run and passed, recorded so they are not repeated: no Wi-Fi
+example shipped with ns-3 references `JakesPropagationLossModel`,
+`NakagamiPropagationLossModel`, `RayleighPropagationLossModel` or `TwoRayGround` (the
+manuscript's claim about the ecosystem's default evaluation setting holds), and every
+`OnOffHelper` in the scenario is installed on `apNode.Get(0)`, so the A9.7 correction about
+recipient rather than contending stations stands.

@@ -266,6 +266,12 @@ putn("ArmsWidths", _arms.width.nunique())
 putn("ArmsNss", _arms.nss.nunique())
 put("ArmsFamily", str(_arms["mode"].iloc[0])[:3].upper())
 _up = pd.read_csv(_paths.RESULTS / "exactness/armset_matchupstream.csv")
+# IdealWifiManager does NOT enumerate widths: DoGetDataTxVector fixes channelWidth to
+# min(negotiated, allowedWidth) before the search and then loops over modes and streams
+# only. Its candidate set is therefore the distinct (mcs, nss) pairs at one width, not the
+# full table, and its selected width never narrows (protocol-v1 amendment A9.14).
+put("GenieArms", f"{_arms.groupby(['mcs','nss']).ngroups}")
+put("GenieWMin", f"{_camp[_camp.arm=='Ideal'].mean_width.min():.1f}")
 putn("ArmsUpstream", len(_up))
 
 # On a one-dimensional table the two orderings ARE the same function, so the control
