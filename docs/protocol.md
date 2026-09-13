@@ -640,3 +640,52 @@ The manuscript now reports the partial correlation. `StarveConfigs`, `StarveCorr
 `StarvePartial` are added to `make_numbers.py`; `StarveCorrWithin` is computed and released
 but not cited in the 6-page manuscript, for space. This check is **exploratory** — the
 frozen protocol pre-registers the scaling correlation but no confound analysis of it.
+
+#### A9.13 — Eq. (1) is stated on required SNR, but required SNR does not order the table
+
+Added 2026-09-13, during a read-through of §IV.
+
+The manuscript writes the propagation rule with strict inequalities on σ: a failure at rate
+*i* adds to `fails` for every *j* with σ_j > σ_i, a success adds to `success` for every *j*
+with σ_j < σ_i. That is not what `PropagateMonotoneImpl` does, and the difference is not a
+corner case.
+
+`WifiPhy::CalculateSnr` delegates to `ErrorRateModel::CalculateSnr`, which binary-searches
+`GetChunkSuccessRate`. For the table-based model that function reads the MCS, the coding and
+the SNR — **never the channel width or the stream count**. So all six (width, Nss)
+configurations of one MCS return an *identical* threshold: **14 distinct σ values across the
+84 arms, six arms each.**
+
+Under Eq. (1) as written, the five arms tied with the played one receive nothing — 6% of
+propagation targets per report. `BuildRateOrder` instead sorts `std::pair<double, size_t>`,
+so ties are broken by enumeration index and every tied arm *is* updated, as easier or harder
+depending on that index.
+
+The implementation is right and the equation is incomplete. A success at MCS 4 / 40 MHz /
+1 SS is genuine evidence for MCS 4 / 20 MHz / 1 SS: identical per-stream SNR, less noise in
+the narrower band. Eq. (1) abstains where the physics does not.
+
+Two consequences, both now stated in the manuscript:
+
+1. **The tie-break is the required-power order.** Enumeration within an MCS runs (20,1),
+   (20,2), (40,1), (40,2), (80,1), (80,2), giving W·Nss of 20, 40, 40, 80, 80, 160 —
+   monotone non-decreasing, verified against the released `armset_latest.csv`. The "raw
+   required-SNR" ordering therefore already resolves every width/stream comparison, and
+   resolves it by required receive power. §IV now says so where σ is defined.
+2. **The third ordering tests less than §V-A claimed.** "The effect does not rest on the SNR
+   convention" overstates it: `RequiredSnrPower` and `RequiredSnr` agree on every
+   within-MCS comparison by construction — exactly the comparisons where the two
+   conventions most sharply disagree, up to 8× in power at identical σ. They differ only in
+   how MCS are interleaved across (width, stream) groups. The measured result
+   (+0.54%, CI [−0.75, +1.82], p = 0.71) is unchanged; §V-A now states what it isolates.
+
+One related check was run and **passed**, and is recorded so it is not re-litigated:
+`BuildRateOrder` parks configurations failing `WifiTxVector::IsValid` at `DBL_MAX` under
+both SNR keys, while the `DataRate` branch returns before that check — an asymmetry between
+the two arms of the ordering ablation. It is inert here. `IsValid` rejects only certain
+`VhtMcs` combinations, channel widths above 160 MHz, and MU-RU cases; all 84 SU EHT arms at
+20/40/80 MHz with one or two streams pass, so the branch never fires and the arms differ in
+the ordering key alone.
+
+Neither the tie-break nor this check appears in the frozen protocol. Both are
+**exploratory**, and no reported number changes because of either.
