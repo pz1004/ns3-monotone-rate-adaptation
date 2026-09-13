@@ -924,3 +924,47 @@ No measured value changes. The lesson is procedural and worth recording: **a cor
 a body section is not complete until the abstract and introduction have been re-read against
 it.** Sections III to VII were each audited and corrected in turn, and none of those passes
 looked forward to the summary that had already asserted the uncorrected claim.
+
+#### A9.19 — §II said Minstrel-HT is ns-3's default. It is not; the default is the genie.
+
+Added 2026-09-13, during a read-through of §II.
+
+§II opened "Minstrel and Minstrel-HT remain the default in Linux and in ns-3". The Linux
+half is right. The ns-3 half is not: `WifiHelper`'s constructor
+(`src/wifi/helper/wifi-helper.cc:1006`) calls
+
+```cpp
+SetRemoteStationManager("ns3::IdealWifiManager");
+```
+
+so ns-3.48's out-of-the-box rate manager is **`IdealWifiManager`** — the same manager this
+paper uses as its genie. Any reviewer who knows the tree opens that file and sees it.
+
+The sentence now states what is true and keeps the fact, which is worth having: Minstrel-HT
+is Linux's default and ships with ns-3, whose own default is the `Ideal` genie. That pairs
+with §V's observation that no shipped ns-3 Wi-Fi example uses a fading model — both say
+something about what this ecosystem treats as a default evaluation setting — and it tells a
+reader why a "genie" is the thing sitting in the helper.
+
+**A citation-scope slip this exposed.** The original plural subject ("Minstrel *and*
+Minstrel-HT … *Their* behaviour has been studied empirically") let `\cite{minstrel}` cover
+the sentence. That reference is Xia, Hart and Fu on Minstrel in **802.11g** — legacy
+Minstrel, since 802.11g has no HT. Narrowing the subject to Minstrel-HT left the citation
+attached to the wrong algorithm, so the text now says "its legacy predecessor was studied
+empirically", which is what the cited work actually did and which also sets up the
+`LookAroundRate` note two sentences later.
+
+**Re-verified in the built tree, all exact**, since §II states them as fact:
+
+| §II claim | source |
+|---|---|
+| at most 16 samples per interval | `station->m_sampleCount = 16` (`minstrel-ht-wifi-manager.cc:475`) |
+| 50 ms statistics interval | `UpdateStatistics` default `MilliSeconds(50)` (`:124`) |
+| wait of 16 + 2·L̄_ampdu attempts | `station->m_sampleWait = 16 + 2 * station->m_avgAmpduLen` (`:936`) |
+| the "10% lookaround" is legacy-only | `LookAroundRate`'s description reads "(for legacy Minstrel)" and its one use forwards to `m_legacyManager` (`:511`) |
+
+**What was not re-verified.** §II's claims about the *content* of cited work — Combes et
+al.'s graphical variant and sliding-window extension, the WNS3 verification's 802.11ax
+convergence finding, DARA's 15% over Minstrel-HT — rest on the survey record from the
+planning phase, not on re-reading those papers in this audit. They are consistent with that
+record; they were not independently re-checked here.
