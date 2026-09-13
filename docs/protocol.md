@@ -1143,3 +1143,54 @@ to, what shape a curve has, whether a quantity was chosen or fixed. `check_paper
 verifies that 9 and 72 are the right numbers and cannot verify which party owns each. That
 is the same blind spot A9.15 and A9.20 recorded; the durable fix remains emitting identities
 and shapes as macros and assertions, which finding 2 now does.
+
+#### A9.24 — §IV stated a tie-break rule that does not determine the order
+
+*2026-09-13. Exploratory re-read of §IV against `contrib/cqra` and `ideal-wifi-manager.cc`.
+Two corrections, both to prose; nothing measured changes.*
+
+**1. The stated tie-break is coarser than the one the code applies.** A9.13 established that
+ns-3's error model returns one threshold per MCS, so an MCS's six (width, streams)
+configurations tie in σ, and §IV was rewritten to say the order "breaks those ties by
+`W_j · N_ss,j`". That rule does not separate them either. Within an MCS the six values of
+`W·nss` are 20, 40, 40, 80, 80, 160: **(20 MHz, 2 SS) ties (40 MHz, 1 SS), and
+(40 MHz, 2 SS) ties (80 MHz, 1 SS)**, so 56 of the 84 configurations sit in a pair the
+stated rule leaves undetermined.
+
+What the code does: `BuildRateOrder` sorts `std::pair<double, size_t>`, so the comparison is
+lexicographic on (σ, enumeration index) and is total. `InitializeStation` enumerates
+MCS → width ascending → streams ascending, which makes the realised tie-break non-decreasing
+in `W·nss` and strictly finer than it. §IV now states that rule. The order was always
+reproducible from the released module and `results/exactness/armset_latest.csv`; it was not
+reproducible from the paper, which for a paper resting on exact reproducibility is the
+defect.
+
+This does not disturb the third ordering's rationale. σ·W·nss is constant-scaled within an
+MCS, so it inherits the same two ties and the same enumeration tie-break, and the two keys
+agree within every MCS — "the one place the two keys differ" is still cross-MCS
+interleaving, as §IV and the `CQR_ORDER_REQ_SNR_POWER` comment both say.
+
+**2. A causal aside that was half wrong and wholly redundant.** §IV read "that threshold is
+referenced to the noise in a configuration's own bandwidth, **which is why it ties across
+widths and streams**". Own-bandwidth referencing explains the *width* tie — signal and noise
+both scale with bandwidth, so the required ratio does not. It does not explain the *stream*
+tie, which comes from ns-3's error model being indexed by MCS alone. That is the reason the
+same paragraph already gives nine lines earlier, so the clause was deleted rather than
+repaired.
+
+**Checked and clean.** `CqrWifiManager`'s `BerThreshold` defaults to 1e-6 and
+`IdealWifiManager`'s does too, so Fig. 1's "the same per-configuration threshold the genie
+uses to set its own" holds. `RateStats::success` and `::fails` are `double` while
+`SampleBetaVariable` takes `uint64_t`, so fractional propagated mass really does accumulate
+in the counts and move the posterior only on crossing an integer — four shared observations
+at w=0.25, as stated. `GetLastObservedSnr` divides by both the width ratio and the nss
+ratio. `Decay` is timestamp-based, so Fig. 1's "discount, then apply" is faithful even
+though the code decays only the arms it touches. And `PropagateMonotoneImpl` returns
+immediately when `m_structWeight <= 0`, so the w=0 byte-identity is by construction and not
+a floating-point coincidence — had the propagation loop run at w=0 it would have called
+`Decay` at extra instants, and `exp(-λΔt₁)·exp(-λΔt₂)` is not bit-identical to
+`exp(-λ(Δt₁+Δt₂))`.
+
+**Page cost.** The correction spilled one reference line onto a seventh page. Reclaimed by
+deleting §IV's statement that the algorithm reduces to the shipped sampler at w=0, which
+Fig. 1's caption already makes.
