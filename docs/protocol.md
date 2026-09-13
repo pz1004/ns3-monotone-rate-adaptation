@@ -1048,3 +1048,45 @@ correct in the abstract and §I: it does not say the genie is on the same action
 not call ns-3's sampler deployed, and does not claim the result is independent of an SNR
 convention. Its crossover figure (~9 m/s) is ours, unaffected by A9.20's correction to the
 baseline's.
+
+#### A9.22 — Four defects that only a sequential read of the compiled PDF exposed
+
+Added 2026-09-13, after compiling and reading the paper end to end. Sections II–VIII had each
+been audited in isolation; none of these four survives that kind of pass, and none of them is
+visible in the LaTeX source.
+
+**1. The artifact URL was typeset with a space in it.** The `url` package's default break set
+includes the colon, so `\url{https://github.com/...}` wrapped as
+
+```
+... from those outputs: https:
+//github.com/pz1004/ns3-monotone-rate-adaptation.
+```
+
+A reader copying the paper's one reproducibility link got `https: //github.com/...`. The
+preamble now removes the colon from `\UrlNoBreaks`, so the line wraps after `https://`
+instead — a legal break that leaves no token split. Checked in the rendered PDF, not in the
+source, because the source looked correct either way.
+
+**2. Table IV's caption claimed matched arm sets.** It read "Arm sets matched", written
+before A9.14. Three of that table's seven rows are not on the 84-arm set: the `Ideal` genie
+searches 28 configurations at one width, Minstrel-HT additionally sweeps guard interval, and
+the two static references are single fixed rates. The caption now says "Learning arms share
+one action set", matching §V. This is the same inheritance failure A9.18 recorded for the
+abstract and §I — a claim corrected in the body and left standing in a caption, which no
+prose audit reads.
+
+**3. A bare number ending a sentence.** §III read "the error under motion grows to +4.35",
+with the unit established only in the parenthesis before it. Now "+4.35 steps".
+
+**4. An arithmetic trap in the abstract.** The abstract gives +1.0% for data-rate ordering,
++21.5% for required SNR, then "+25.8% ahead". A reader who subtracts gets 20.5 and suspects
+an inconsistency. There is none — the first two are ratios of means over the grid and the
+third is paired per run, as Table III's caption states — but the abstract had no signal that
+a different quantity was being reported. It now says "+25.8% ahead **run for run**".
+
+Nothing measured changes. The general point is that section-by-section auditing has a blind
+spot: it does not read captions against prose written later, it does not see typesetting, and
+it does not notice that three numbers in one paragraph invite an arithmetic a reader will
+attempt. Compiling and reading the whole document is a distinct check, and it found four
+things twenty-one amendments of section auditing had not.
