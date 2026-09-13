@@ -149,8 +149,13 @@ for sp in sorted(m.speed.unique()):
         put(f"GenieW{tag}", f"{s.i_w.mean():.0f}");  put(f"GenieNss{tag}", f"{s.i_n.mean():.2f}")
         put(f"ThomW{tag}",  f"{s.mean_width.mean():.0f}")
         put(f"ThomNss{tag}", f"{s.mean_nss.mean():.2f}")
-put("BiasRestAbs", f"{abs(m[m.speed==0].bias.mean()):.1f}")
+# One sentence in the conclusion prints both. At .1f and .2f they read as "1.5 MCS steps
+# below ... and 2.35 above", mixing precision mid-clause and matching neither Table I entry.
+# Two decimals for both, so the conclusion and the table print the same figures (A9.21).
+put("BiasRestAbs", f"{abs(m[m.speed==0].bias.mean()):.2f}")
 put("BiasFastAbs", f"{m[m.speed==20].bias.mean():.2f}")
+assert out["BiasRestAbs"] == out["BiasVzero"].lstrip("+-"), "conclusion must match tab:bias"
+assert out["BiasFastAbs"] == out["BiasVtwozero"].lstrip("+"), "conclusion must match tab:bias"
 put("TxOhFastAbs", f"{m[m.speed==20].txoh.mean():.1f}")
 
 # ---------- ordering ablation (matched: one function differs, nothing else) ----

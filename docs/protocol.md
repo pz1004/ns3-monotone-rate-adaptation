@@ -1017,3 +1017,34 @@ Everything else checked in §VI-C holds, and is recorded so it is not re-derived
   at 20 m/s. All match the manuscript.
 - **Provenance.** `results/fairness/jain.parquet` is from the 84-arm re-run, and
   `measure_fairness.py` passes `--modFamily`. The fairness claims are on the corrected table.
+
+#### A9.21 — Three presentation defects in §VIII
+
+Added 2026-09-13, during a read-through of the conclusion. None changes a measured value;
+all three are ways the summary said something the body does not.
+
+**1. Mixed precision inside one clause.** The conclusion printed "1.5 MCS steps below the
+genie at rest and 2.35 above at 20 m/s" — `BiasRestAbs` at one decimal, `BiasFastAbs` at
+two. Besides reading badly, 1.5 matches no figure anywhere in the paper: Table I reports
+−1.47 ± 0.13. Both now print at two decimals, and `make_numbers.py` asserts each equals its
+Table I entry, so the conclusion and the table cannot drift apart.
+
+**2. An exploratory result stated flat.** §VI-A labels the size–benefit correlation
+exploratory — "not pre-registered, the correlation is over six cells, two of which share a
+table size" — and §I lists "which results were exploratory rather than pre-committed" as
+part of the third contribution. The conclusion then recapped `r = +0.88` against
+`r = −0.59` with no marker, alongside the pre-registered results and as the last thing a
+reader sees. It is now marked in place. The paired ordering contrast, which is
+pre-registered, leads the sentence instead.
+
+**3. An ambiguous denominator.** "loses in three of eighteen cells to a per-cell-tuned
+Thompson frontier" invites reading eighteen as the Thompson denominator; it is the total
+across three baseline families, six cells each, and the Thompson-specific figure is 3/6. Now
+"three of eighteen family cells, **all** to a per-cell-tuned Thompson frontier", which is
+both unambiguous and more forthcoming — every failure in the campaign is against one family.
+
+**Checked and clean.** The conclusion inherited none of the three claims A9.18 had to
+correct in the abstract and §I: it does not say the genie is on the same action set, does
+not call ns-3's sampler deployed, and does not claim the result is independent of an SNR
+convention. Its crossover figure (~9 m/s) is ours, unaffected by A9.20's correction to the
+baseline's.
