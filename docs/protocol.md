@@ -1194,3 +1194,46 @@ a floating-point coincidence — had the propagation loop run at w=0 it would ha
 **Page cost.** The correction spilled one reference line onto a seventh page. Reclaimed by
 deleting §IV's statement that the algorithm reduces to the shipped sampler at w=0, which
 Fig. 1's caption already makes.
+
+#### A9.25 — A heading that outran its own section, and a conclusion that kept a phrase §III had retired
+
+*2026-09-13. Pre-submission revision of the whole manuscript for register: the paper read as
+a working record rather than as a conference paper. No measured value changes, no analysis
+script changes, and `check_paper.py` passes unchanged. Two of the edits are claim-level and
+are recorded here; the rest are rhetorical and are not.*
+
+**1. §VI-A's heading asserted what A9.16 had already narrowed.** The subsection was titled
+"The ordering is the mechanism". A9.16 measured the evidence-budget confound that comment B1
+predicted — required SNR spends +19.7% more propagated pseudo-count per report
+(p = 2×10⁻¹²), zero in the one-dimensional control, +36.7% at 84 arms — and the body was
+rewritten in the same amendment to conclude only that the ordering is *a consequential
+design choice*, not that it is the mechanism isolated from its concentration. The heading was
+not rewritten with it, so the section asserted in its title the stronger claim its own
+closing paragraph withdraws. Retitled "Which ordering carries the evidence", which names the
+question the section answers without prejudging how much of the effect the direction carries.
+
+**2. The conclusion kept "roughly walking pace" after A9.23 replaced it in §III.** A9.23
+established that the sign change sits between 2 and 5 m/s and removed the walking-pace
+phrasing from §III, since walking pace is ≈1.4 m/s and the measurement does not locate the
+crossing anywhere near it. §VIII still read "the sampler's selection error reverses at
+roughly walking pace". Corrected to "between 2 and 5 m/s", matching §III and Table I.
+
+This is the **third** instance of the A9.18 failure mode — a body correction not propagated
+to the abstract, introduction or conclusion — after A9.18 itself and A9.21. The rule stated
+in the execution log ("a body correction is not finished until the abstract, introduction,
+conclusion and every table caption have been re-read against it") was written down and then
+not applied to A9.23. A checklist that is not mechanised is not a control: the durable fix is
+the same one A9.15 and A9.23 reached for, emitting the load-bearing identity as a macro so
+prose cannot drift from it. Not done here — the crossing interval is stated in two places and
+both now agree — but recorded as the standing weakness.
+
+**Checked while rewriting, and left alone.** The abstract's +21.5% is a gain over discounted
+Thompson sampling *on the same 84-arm table*, which is the module at w=0 and not ns-3's
+shipped manager (which has no EHT branch at all, §V). The abstract had named no comparator;
+a draft of this revision named ns-3's sampler, which would have misstated it, and the
+comparator is now stated as "discounted Thompson sampling on the same table". The abstract's
+two denominators — 36 deployment-wide cells and 18 baseline-family cells — sat in one
+sentence without distinction and are now labelled.
+
+**Page cost.** Nil on balance: the revision runs 254 characters shorter than the text it
+replaced, and the paper holds at 6 pages with no overfull box.
