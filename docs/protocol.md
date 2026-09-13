@@ -740,3 +740,100 @@ example shipped with ns-3 references `JakesPropagationLossModel`,
 manuscript's claim about the ecosystem's default evaluation setting holds), and every
 `OnOffHelper` in the scenario is installed on `apNode.Get(0)`, so the A9.7 correction about
 recipient rather than contending stations stands.
+
+#### A9.15 — Two results in §VI and §VII named the wrong cell
+
+Added 2026-09-13, during a read-through of §VI. Both are 72-arm statements that survived
+the re-run because the cell *identities* were hand-typed while only the numbers came from
+the data. `check_paper.py` verifies numbers against the released runs; it cannot verify a
+label.
+
+**The KL-R-UCB reversal.** §VI-B read "the unstructured KL-R-UCB edges out structured
+SW-ORS in five of six cells by at most +5.1%, and is itself beaten (−0.4%) in the
+single-station path-loss cell." On the 84-arm table that cell is a **+2.1% KL-R-UCB win**:
+
+| cell | KL-R-UCB vs best SW-ORS |
+|---|---|
+| path loss, 1 STA | +2.10% |
+| path loss, 4 STA | +5.13% |
+| path loss, 8 STA | +0.52% |
+| fading, 1 STA | +2.36% |
+| fading, 4 STA | +1.11% |
+| **fading, 8 STA** | **−0.45%** |
+
+The reversal is in the eight-station fading cell. `make_numbers.py` now emits the label as
+`KlLoCell` rather than leaving it to prose. The generator's own comment was stale in the
+same direction — it claimed the reversal was by a wider margin than any cell in which the
+comparison holds, which was true at 72 arms and is false at 84 (−0.4% against wins to
++5.1%). Corrected.
+
+**Pattern A's magnitude.** §VII reported "on pure path loss with a single station a
+well-tuned λ beats us by up to 12.3% at high speed". `PatternALoss` was computed as the
+absolute value of the minimum over the **whole** Thompson column, and that minimum is
+(logdistance+jakes, 4 STA) at 0 m/s — a **pattern B** cell, already quoted correctly two
+sentences later as pattern B's upper end. The same number was therefore printed for two
+distinct failure patterns, and Table V showed −5.8 for the pattern A cell three inches away.
+
+Measured in its own cell with the margin definition `make_percell.py` uses, pattern A is
+**−5.79% at 10 m/s** against `Thompson(d=10)` (next worst −5.57% at 20 m/s). The manuscript
+now reports 5.8%, adds `PatternASpeed`, and `make_numbers.py` asserts that pattern A can
+never again equal the table-wide minimum.
+
+Neither error favoured the paper: the first named a cell that contradicts the claim, and the
+second overstated our own worst path-loss failure by 2.1×.
+
+#### A9.16 — The propagated-evidence budget, measured rather than argued
+
+Added 2026-09-13, alongside A9.15.
+
+**The instrumentation was built and never harvested.** A9.5 added accumulators for the
+realised propagated mass (`succ_mass`, `fail_mass`, `targets`, `rank_sum`, written to the
+cost log). §VI-A then *argued* the budget qualification from the equation instead of
+measuring it. It is now measured.
+
+**A blocking defect first.** `read_decision_cost.py` unpacked four fields from that cost
+log and cast every one with `int()`. The log has had eight fields since the budget work
+landed, two of them floats, so the script raised
+`ValueError: invalid literal for int() with base 10: '15.75'` against the module shipped
+beside it — a runner in a reproducibility artifact that could not run. It now reads by
+header name, so a further column cannot break it again.
+
+**The measurement.** `measure_budget.py` (new) runs both orderings on the grid
+`results/mono/order_matched.parquet` uses — w = 0.25, λ = 2 Hz, 4 STAs,
+`logdistance+jakes`, speeds {5, 20}, all six (width, streams) groups, 10 seeds — and reads
+the realised masses. 240 runs, 0 failures, released as `results/mono/budget.parquet`.
+
+Paired over the 120 matched cells:
+
+| quantity | required SNR | data rate | paired | p |
+|---|---|---|---|---|
+| propagated mass per report | 98.1 | 87.4 | **+19.7%** | 1.7×10⁻¹² |
+| propagation targets | 146,305 | 116,255 | +17.8% | 3.5×10⁻¹³ |
+| mean played rank (of 84) | 17.9 | 23.7 | −17.5% | 1.2×10⁻¹⁵ |
+
+**The qualification is confirmed, not removed.** The two orderings do *not* spend
+comparable budgets: required SNR spends about a fifth more per report, because its played
+configuration sits lower in its own order and Eq. (1) then has more harder-rate targets to
+send failure mass to. The hedge in §VI-A therefore stands — the ablation identifies the
+ordering as a consequential design choice, not evidence direction isolated from its
+concentration — and it now rests on a measurement rather than on an argument. The stronger
+claim that the ordering is *the entire* mechanism remains unearned, and is not made.
+
+The measurement validates itself on the same null control the throughput ablation uses. At
+20 MHz with one stream the two orderings are the same permutation, and the budgets agree
+**exactly**: +0.000%, identical mean rank 5.6. The divergence then grows with table
+dimensionality — +13.4% (20/2), +12.8% (40/1), +23.2% (40/2), +31.9% (80/1), +36.7% (80/2)
+— in the same order as the heterogeneity the ordering has to resolve. `make_numbers.py`
+asserts the 1-D control is exactly zero; if it ever is not, the instrument is measuring
+something other than the ordering.
+
+This measurement is **exploratory**: the frozen protocol pre-registers the ordering
+ablation but no budget accounting for it.
+
+**A second artifact defect, found while wiring the new run in.** `reproduce.sh` documents
+`DRY_RUN=1 bash reproduce.sh` as "print every grid size, run nothing", and its `run()`
+helper passes `--dry-run` to every runner. Only `run_sweep.py` accepted it: `run_ablation.py`
+and `run_gate1.py` did not, so the documented dry run died on an argparse error at the first
+of the 19 blocks and never reached the other 17. Both now accept the flag, print the grid
+size and return, as `run_sweep.py` already did, and `measure_budget.py` follows the same
+convention. `DRY_RUN=1 bash reproduce.sh` now completes and prints all 20 grid sizes.

@@ -90,6 +90,8 @@ def main():
     a.add_argument("--checkpoint-every", type=int, default=250)
     a.add_argument("--sim-time", type=float, default=10.0)
     a.add_argument("--workers", type=int, default=24)
+    a.add_argument("--dry-run", action="store_true",
+                   help="print the grid size and exit, running nothing")
     a.add_argument("--mod-family", default="Latest", choices=["Latest", "MatchUpstream"],
                    help="action set for the learning managers (protocol-v1 A9.1)")
     a.add_argument("--out", required=True)
@@ -138,6 +140,8 @@ def main():
     out_path = Path(a.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)  # before any run, not after
     print(f"[ablation] {len(grid)} runs on {a.workers} workers", flush=True)
+    if a.dry_run:
+        return
     rows, fails, t0 = [], [], time.time()
     with ProcessPoolExecutor(max_workers=a.workers) as ex:
         for i, f in enumerate(as_completed([ex.submit(one,c) for c in grid]), 1):

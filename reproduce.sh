@@ -432,6 +432,14 @@ run smoke_tiny run_sweep.py \
   --seeds 1 \
   --out results/smoke/tiny.parquet
 
+# The propagated-evidence budget each ordering actually spends (protocol A9.16).
+# Same grid as mono/order_matched.parquet, run once per ordering.
+#   240 rows
+if [[ -z "$only" || "$only" == budget ]]; then
+  python runner/measure_budget.py --workers "$WORKERS" \
+    --out results/mono/budget.parquet ${DRY_RUN:+--dry-run}
+fi
+
 # Derived from envelope/const_sweep.parquet, not from a simulation run.
 if [[ -z "$only" || "$only" == references ]]; then python analysis/make_references.py; fi
 

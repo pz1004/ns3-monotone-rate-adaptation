@@ -76,6 +76,8 @@ def main():
     ap.add_argument("--interval", type=float, default=0.5)
     ap.add_argument("--seeds", nargs="+", type=int, default=[1, 2, 3])
     ap.add_argument("--workers", type=int, default=24)
+    ap.add_argument("--dry-run", action="store_true",
+                    help="print the grid size and exit, running nothing")
     ap.add_argument("--channels", nargs="+", default=["logdistance"])
     ap.add_argument("--ts-decays", nargs="+", type=float, default=[])
     ap.add_argument("--mod-family", default="Latest", choices=["Latest", "MatchUpstream"],
@@ -99,6 +101,8 @@ def main():
                          a.interval, ch, None))
 
     print(f"[gate1] {len(grid)} runs on {a.workers} workers", flush=True)
+    if a.dry_run:
+        return
     frames, fails, t0 = [], [], time.time()
     with ProcessPoolExecutor(max_workers=a.workers) as ex:
         futs = [ex.submit(one_run, c) for c in grid]

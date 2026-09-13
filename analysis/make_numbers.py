@@ -297,6 +297,31 @@ assert pmax < _m * 10.0 ** _e, "p-value bound must hold, not merely round to"
 put("ScalePmax", f"{_m}\\times10^{{{_e}}}")
 
 # ---------- campaign ----------
+# ---------- the propagated-evidence budget each ordering actually spends ----------
+# Sec. VI-A qualifies the ablation: a fixed w does not fix the TOTAL propagated
+# pseudo-count, because Eq. (1) shares w(n_s r + n_f (N-1-r)) and the played rank r
+# differs between orderings. That was argued from the equation; the manager has
+# accumulated the realised masses all along, so measure it (A9.16). The measurement
+# CONFIRMS the qualification -- the budgets are not matched -- so the hedge stays and is
+# now backed by data rather than by an argument.
+_bud = pd.read_parquet(f"{R}/mono/budget.parquet")
+_bud["mpc"] = _bud.total_mass / _bud.calls
+_BK = ["speed", "width", "nss", "seed"]
+_bj = (_bud[_bud.order == "RequiredSnr"].set_index(_BK)
+       .join(_bud[_bud.order == "DataRate"].set_index(_BK), lsuffix="_s", rsuffix="_r")
+       .dropna())
+put("BudPct",      f"{(100*(_bj.mpc_s/_bj.mpc_r-1)).mean():+.1f}")
+put("BudP",        _texp(stats.ttest_rel(_bj.mpc_s, _bj.mpc_r).pvalue))
+put("BudRankSnr",  f"{_bj.mean_rank_s.mean():.1f}")
+put("BudRankRate", f"{_bj.mean_rank_r.mean():.1f}")
+_bg = _bj.reset_index().groupby(["width", "nss"]).apply(
+    lambda k: (100*(k.mpc_s/k.mpc_r-1)).mean(), include_groups=False)
+put("BudHi", f"{_bg.max():+.1f}")
+# The one-dimensional cell is the same null control the throughput ablation uses: there the
+# two orderings ARE the same permutation, so the budgets must agree exactly. If they do not,
+# the instrumentation is measuring something other than the ordering.
+assert abs(_bg.loc[(20, 1)]) < 1e-9, \
+    f"1-D control must spend identical budgets, got {_bg.loc[(20,1)]:+.3f}%"
 c = pd.read_parquet(f"{R}/campaign/full.parquet")
 put("NRuns", f"{len(c):,}".replace(",", "{,}"))
 put("NArms", f"{c.arm.nunique()}")
@@ -397,17 +422,23 @@ put("BiasFastFloor",   f"{_bp.loc[_lff, 20.0]:+.2f}")
 put("BiasFastFloorCI", f"{1.96*_ff.std(ddof=1)/np.sqrt(len(_ff)):.2f}")
 
 # ---------- unstructured KL-R-UCB vs structured ORS ----------
-# Sec. VI-B called this "consistent". It is not: it reverses in one cell, by a wider
-# margin than any cell in which it holds. Count the cells and quote the spread.
+# Sec. VI-B called this "consistent". It is not: it reverses in one cell. On the 84-arm
+# table that reversal is SMALLER than every cell in which it holds (-0.4% against wins up
+# to +5.1%), the opposite of what the 72-arm table showed. Emit the cell label too: it was
+# hand-typed as the single-station path-loss cell, which is now a +2.1% WIN (A9.15).
 _of = c[c.arm.str.contains("ORS|KL-R", regex=True)]
 _rel = []
-for _, k in _of.groupby(["channel", "nsta"]):
+for (_ch, _ns), k in _of.groupby(["channel", "nsta"]):
     g2 = k.groupby("arm").thr.mean()
     _kl = max(v for i, v in g2.items() if "KL-R" in i)
     _or = max(v for i, v in g2.items() if "KL-R" not in i)
-    _rel.append(100 * (_kl / _or - 1))
-putn("KlWins", sum(r > 0 for r in _rel)); putn("KlCells", len(_rel))
-put("KlHi", f"{max(_rel):+.1f}"); put("KlLo", f"{min(_rel):+.1f}")
+    _rel.append((100 * (_kl / _or - 1), _ch, _ns))
+putn("KlWins", sum(r[0] > 0 for r in _rel)); putn("KlCells", len(_rel))
+put("KlHi", f"{max(r[0] for r in _rel):+.1f}")
+_klc = min(_rel)
+put("KlLo", f"{_klc[0]:+.1f}")
+_W = "zero one two three four five six seven eight nine ten".split()
+put("KlLoCell", f"{_W[_klc[2]]}-station {'fading' if 'jakes' in _klc[1] else 'path-loss'}")
 
 # ---------- the equivalence grid, read from the script that runs it ----------
 # Sec. IV and Sec. V-A both print this count; neither was tied to the checker, so a
@@ -424,7 +455,24 @@ put("EquivConfigs", str(len(_grid[0]) * len(_grid[1]) * len(_grid[2])))
 put("TableGrowth", f"{int(out['StarveBigN'])//int(out['StarveSmallN'])}")
 
 # ---------- worst Thompson-frontier loss (Pattern A) ----------
-put("PatternALoss", f"{abs(float(out['LoThompson'])):.1f}")
+# This was |min over the WHOLE Thompson column|, which is a different cell: the table-wide
+# minimum is (logdistance+jakes, 4 STA) at 0 m/s -- pattern B. Sec. VII therefore printed
+# pattern B's magnitude for pattern A and quoted the same number twice (A9.15). Pattern A
+# is the path-loss single-station cell; compute it there, with the margin definition
+# make_percell.py uses, and emit the speed so "at high speed" is checkable too.
+_paO = c[(c.arm == "Mono(w=0.25)") & (c.channel == "logdistance") & (c.nsta == 1)]
+_paT = c[c.arm.str.startswith("Thompson(") & (c.channel == "logdistance") & (c.nsta == 1)]
+_pa = []
+for _arm, _a in _paT.groupby("arm"):
+    _m = _paO[["speed", "seed", "thr"]].merge(_a[["speed", "seed", "thr"]],
+                                              on=["speed", "seed"], suffixes=("_o", "_t"))
+    for _sp, _s in _m.groupby("speed"):
+        _pa.append((100 * (_s.thr_o.mean() / _s.thr_t.mean() - 1), _sp))
+_pa.sort()
+put("PatternALoss",  f"{abs(_pa[0][0]):.1f}")
+put("PatternASpeed", f"{_pa[0][1]:g}")
+assert float(out["PatternALoss"]) < abs(float(out["LoThompson"])), \
+    "pattern A must be read from its own cell, not from the table-wide minimum"
 
 # ---------- pattern B: is the resting-cell loss a fixed-lambda artefact? ----------
 # Sec. VII claims a forgetful sampler recovers it. That was asserted from memory with

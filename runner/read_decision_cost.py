@@ -35,8 +35,16 @@ for width, nss, nrates in CONFIGS:
                 ln = f.read_text().splitlines()
                 if len(ln) < 2:
                     continue
-                c, ns, r, p = (int(x) for x in ln[1].split(","))
-                tot_calls += c; tot_ns += ns; tot_rates += r
+                # The manager writes eight fields since the propagated-budget work:
+                # calls,total_ns,sum_rates,clock_pair_ns_x1e6,succ_mass,fail_mass,
+                # targets,rank_sum. This unpacked four and cast every one with int(),
+                # so it raised ValueError on the float mass columns (amendment A9.16).
+                # Read by header name, so a further column cannot break it again.
+                hdr = ln[0].split(",")
+                rec = dict(zip(hdr, (float(x) for x in ln[1].split(","))))
+                tot_calls += int(rec["calls"]); tot_ns += int(rec["total_ns"])
+                tot_rates += int(rec["sum_rates"])
+                p = rec["clock_pair_ns_x1e6"]
                 pair = p / 1e6 if pair is None else min(pair, p / 1e6)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

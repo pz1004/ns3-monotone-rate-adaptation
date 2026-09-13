@@ -172,6 +172,7 @@ rather than drawing a figure that disagrees with the prose, so the order matters
 | Table I — selected MCS, PHY rate and transmissions vs the genie | `make_numbers.py` | `results/diag/bias10.parquet` |
 | Table II — scenario parameters | *(static)* | — |
 | Table III — effect of the propagation ordering | `make_numbers.py` | `results/mono/order_matched.parquet` |
+| §VI-A — propagated-evidence budget per ordering | `make_numbers.py` | `results/mono/budget.parquet` |
 | Table IV — held-out speeds, absolute throughput | `make_numbers.py` | `results/campaign/full.parquet`, `results/envelope/references.parquet` |
 | Table V — per-cell audit | `make_percell.py` | `results/campaign/full.parquet` |
 | Fig. 2 — proposed vs the swept frontier, and the ordering (`out/f2_ordering.png`) | `make_figs.py` | `results/mono/{order_matched,frontier_test}.parquet` |
