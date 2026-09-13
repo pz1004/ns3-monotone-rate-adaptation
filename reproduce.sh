@@ -18,11 +18,20 @@ cd "$(dirname "$0")"
 : "${NS3_DIR:?set NS3_DIR to your ns-3.48 build -- see README.md}"
 WORKERS="${WORKERS:-$(( $(nproc) > 4 ? $(nproc) - 4 : 1 ))}"
 only="${1:-}"
+# Action set for the learning managers (protocol-v1 amendment A9.1). "Latest" enumerates
+# EHT MCS 0-13 -- 84 configurations at 80 MHz / 2 streams -- which is the table
+# IdealWifiManager, MinstrelHt and the ConstantRate references already use. Setting this to
+# MatchUpstream reproduces the earlier HE-only (72-arm) enumeration instead.
+MOD_FAMILY="${MOD_FAMILY:-Latest}"
 run() {  # run <name> <script> <args...>
   local name=$1; shift
   if [[ -n "$only" && "$only" != "$name" ]]; then return 0; fi
   echo "=== $name"
-  python "runner/$1" "${@:2}" --workers "$WORKERS" ${DRY_RUN:+--dry-run}
+  # Only the two managers we implement have an action set to choose; run_sweep.py drives
+  # the stock wifi-manager-example, which does not take the flag.
+  local mf=()
+  case "$1" in run_ablation.py|run_gate1.py) mf=(--mod-family "$MOD_FAMILY") ;; esac
+  python "runner/$1" "${@:2}" --workers "$WORKERS" "${mf[@]}" ${DRY_RUN:+--dry-run}
 }
 
 
@@ -196,7 +205,7 @@ run mono_monodecay_50 run_ablation.py \
   --out results/mono/monodecay_50.parquet
 
 # Matched ordering ablation: required SNR vs data rate. Table III, Fig. 3.
-#   480 rows, recorded in logs/order_matched.log
+#   600 rows, recorded in logs/order_matched.log
 run mono_order_matched run_ablation.py \
   --nsta 4 \
   --speeds 5 20 \
@@ -207,7 +216,7 @@ run mono_order_matched run_ablation.py \
   --decay 2 \
   --ts-decays 2 \
   --weights 0.25 \
-  --cqr-orders DataRate RequiredSnr \
+  --cqr-orders DataRate RequiredSnr RequiredSnrPower \
   --out results/mono/order_matched.parquet
 
 # Generalisation splits S3 (STA count) and S4 (channel).
@@ -336,6 +345,7 @@ run envelope_const_sweep run_gate1.py \
   --nss 2 \
   --seeds 1 2 3 4 5 6 7 8 9 10 \
   --channels logdistance+jakes \
+  --sim-time 10 \
   --out results/envelope/const_sweep.parquet
 #   4788 rows
 run gate1_contention_speed run_gate1.py \

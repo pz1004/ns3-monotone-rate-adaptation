@@ -9,6 +9,12 @@ import _ns3
 
 BIN = _ns3.binary(_ns3.SCENARIO)
 
+# Action set for the learning managers. "Latest" enumerates EHT MCS 0-13 (84 arms), which
+# is the table IdealWifiManager, MinstrelHt and the ConstantRate references already use;
+# "MatchUpstream" stops at HE (72 arms) and reproduces ns3::ThompsonSamplingWifiManager
+# exactly. See protocol-v1 amendment A9.1. Set by --mod-family.
+MOD_FAMILY = "Latest"
+
 def one(cfg):
     arm, raa, mode, struct, w, decay, nsta, sp, chan, sd, simt, width, nss, ors, mcs, mh, dec, order = cfg
     tmp = Path(tempfile.mkdtemp(prefix="ab_")); out = tmp/"o.csv"; rl = tmp/"o.rate.csv"
@@ -21,21 +27,41 @@ def one(cfg):
            f"--orsVariant={ors[0]}", f"--orsOrder={ors[1]}", f"--orsWindow={ors[2]}",
            f"--mcs={mcs}", f"--mhSampleColumn={mh[0]}", f"--mhUpdateMs={mh[1]}",
            f"--cqrDecayAdapt={dec[0]}", f"--cqrDecayTarget={dec[1]}",
-           f"--cqrDecayEta={dec[2]}",
+           f"--cqrDecayEta={dec[2]}", f"--modFamily={MOD_FAMILY}",
            f"--out={out}", f"--rateLog={rl}"]
     try:
         p = subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=1800)
         if p.returncode != 0 or not out.exists() or not rl.exists():
             return None, f"{arm} sp={sp} sd={sd}: rc={p.returncode}"
-        thr = pd.read_csv(out).throughput_mbps.sum()
-        r = pd.read_csv(rl); m = r[r.field=="mcs"]
+        samples = pd.read_csv(out).throughput_mbps
+        # Sum of per-interval Mb/s AND the sample count, so mean throughput can be formed
+        # without assuming how many intervals a run produced (protocol-v1 A9.4: the held-out
+        # table divided 19 samples by 20).
+        thr, n_int = samples.sum(), int(samples.size)
+        r = pd.read_csv(rl)
         tot = int(r[r.field=="total_phy_tx"]["count"].iloc[0])
         rxb = int(r[r.field=="rx_bytes_total"]["count"].iloc[0])
-        mean_mcs = (m["value"].values*m["count"].values).sum()/m["count"].sum()
+
+        def _mean(field):
+            """Count-weighted mean of a numeric marginal."""
+            k = r[r.field == field]
+            if k.empty:
+                return float("nan")
+            v = pd.to_numeric(k["value"], errors="coerce").to_numpy(dtype=float)
+            c = pd.to_numeric(k["count"], errors="coerce").to_numpy(dtype=float)
+            return float((v * c).sum() / c.sum())
+
+        # The MCS index alone cannot express aggressiveness once width and streams vary:
+        # a higher MCS at fewer streams can be a LOWER PHY rate. Report all three marginals
+        # and the mean selected PHY rate from the joint distribution (A9.3).
+        mean_mcs, mean_width, mean_nss = _mean("mcs"), _mean("width"), _mean("nss")
+        mean_phyrate = _mean("phyrate")
         return dict(arm=arm, w=w, decay=decay, order=order, nsta=nsta, speed=sp, channel=chan, seed=sd,
                     ors_variant=ors[0], ors_order=ors[1], ors_window=ors[2], mcs=mcs, mh_col=mh[0], mh_ms=mh[1], dmode=dec[0], dtarget=dec[1],
-                    width=width, nss=nss,
-                    thr=thr, mean_mcs=mean_mcs, tx_per_MB=tot/(rxb/1e6) if rxb else float('nan')), None
+                    width=width, nss=nss, mod_family=MOD_FAMILY, n_intervals=n_int,
+                    thr=thr, mean_mcs=mean_mcs, mean_width=mean_width, mean_nss=mean_nss,
+                    mean_phyrate=mean_phyrate,
+                    tx_per_MB=tot/(rxb/1e6) if rxb else float('nan')), None
     except subprocess.TimeoutExpired:
         return None, f"{arm} sp={sp} sd={sd}: timeout"
     finally:
@@ -63,11 +89,13 @@ def main():
     a.add_argument("--decay-eta", type=float, default=0.05)
     a.add_argument("--checkpoint-every", type=int, default=250)
     a.add_argument("--sim-time", type=float, default=10.0)
-    a.add_argument("--workers", type=int, default=_ns3.workers_default())
-    a.add_argument("--dry-run", action="store_true",
-                    help="print the grid size and exit; no ns-3 build needed")
+    a.add_argument("--workers", type=int, default=24)
+    a.add_argument("--mod-family", default="Latest", choices=["Latest", "MatchUpstream"],
+                   help="action set for the learning managers (protocol-v1 A9.1)")
     a.add_argument("--out", required=True)
     a = a.parse_args()
+    global MOD_FAMILY
+    MOD_FAMILY = a.mod_family
 
     grid = []
     for nsta, sp, ch, sd, wd, ns in itertools.product(a.nsta, a.speeds, a.channels,
@@ -76,8 +104,17 @@ def main():
         OD="RequiredSnr"
         grid.append(("Ideal","Ideal","Thompson","None",0.0,a.decay,nsta,sp,ch,sd,a.sim_time,wd,ns,DEF,-1,MH,DF,OD))
         for dc in (a.ts_decays or [a.decay]):
-            grid.append((f"Thompson(d={dc})","ThompsonSampling","Thompson","None",0.0,
-                         dc,nsta,sp,ch,sd,a.sim_time,wd,ns,DEF,-1,MH,DF,OD))
+            # ns3::ThompsonSamplingWifiManager has no EHT enumeration branch, so on the
+            # 84-arm table it cannot be run directly. Cqr with Structure=Monotone and
+            # StructureWeight=0 takes the same code path with propagation disabled, and
+            # verify_equivalence.py proves that path is byte-identical to the shipped
+            # sampler on the HE table (27/27). See protocol-v1 amendment A9.1.
+            if MOD_FAMILY == "Latest":
+                grid.append((f"Thompson(d={dc})","Cqr","Thompson","Monotone",0.0,
+                             dc,nsta,sp,ch,sd,a.sim_time,wd,ns,DEF,-1,MH,DF,OD))
+            else:
+                grid.append((f"Thompson(d={dc})","ThompsonSampling","Thompson","None",0.0,
+                             dc,nsta,sp,ch,sd,a.sim_time,wd,ns,DEF,-1,MH,DF,OD))
         if not a.no_mono:
             for w in a.weights:
                 for od in a.cqr_orders:
@@ -101,9 +138,6 @@ def main():
     out_path = Path(a.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)  # before any run, not after
     print(f"[ablation] {len(grid)} runs on {a.workers} workers", flush=True)
-    if a.dry_run:
-        return 0                      # grid size only -- verify a sweep before spending days on it
-    _ns3.require(BIN)
     rows, fails, t0 = [], [], time.time()
     with ProcessPoolExecutor(max_workers=a.workers) as ex:
         for i, f in enumerate(as_completed([ex.submit(one,c) for c in grid]), 1):

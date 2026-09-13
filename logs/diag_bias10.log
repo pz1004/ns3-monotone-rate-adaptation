@@ -1,0 +1,4 @@
+[ablation] 80 runs on 24 workers
+  50/80 123s fails=0
+  80/80 138s fails=0
+[ablation] 80 rows -> results84/diag/bias10.parquet.parquet (0 failures)

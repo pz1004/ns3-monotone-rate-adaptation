@@ -21,10 +21,15 @@ import _ns3
 
 BIN = _ns3.binary(_ns3.SCENARIO)
 
+# All arms on the 84-arm EHT table (protocol-v1 A9.1). ns3::ThompsonSamplingWifiManager
+# cannot enumerate EHT, so the Thompson arm runs as Cqr with propagation disabled -- the
+# path verify_equivalence.py proves byte-identical to the shipped sampler.
+MOD_FAMILY = "Latest"
 ARMS = {
     "proposed":    ["--raa=Cqr", "--cqrMode=Thompson", "--cqrStructure=Monotone",
                     "--cqrStructWeight=0.25", "--cqrOrder=RequiredSnr"],
-    "Thompson":    ["--raa=ThompsonSampling"],
+    "Thompson":    ["--raa=Cqr", "--cqrMode=Thompson", "--cqrStructure=Monotone",
+                    "--cqrStructWeight=0"],
     "Minstrel-HT": ["--raa=MinstrelHt"],
 }
 
@@ -36,6 +41,7 @@ def one(cfg):
         cmd = [str(BIN), f"--out={tmp/'o.csv'}", f"--perStaOut={tmp/'p.csv'}",
                *ARMS[arm], f"--nSta={nsta}", f"--channel={chan}", f"--simTime={simt}",
                "--interval=0.5", "--channelWidth=80", "--nss=2", f"--tsDecay={decay}",
+               f"--modFamily={MOD_FAMILY}",
                f"--speed={speed}", "--mobility=" + ("linear" if speed > 0 else "static"),
                f"--seed={seed}"]
         p = subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=600)

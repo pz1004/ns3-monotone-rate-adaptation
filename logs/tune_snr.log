@@ -1,7 +1,7 @@
 [ablation] 210 runs on 24 workers
-  50/210 154s fails=0
-  100/210 243s fails=0
-  150/210 320s fails=0
-  200/210 359s fails=0
-  210/210 365s fails=0
-[ablation] 210 rows -> results/mono/tune_snr.parquet (0 failures)
+  50/210 444s fails=0
+  100/210 671s fails=0
+  150/210 847s fails=0
+  200/210 911s fails=0
+  210/210 917s fails=0
+[ablation] 210 rows -> results84/mono/tune_snr.parquet.parquet (0 failures)

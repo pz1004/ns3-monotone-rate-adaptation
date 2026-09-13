@@ -1,9 +1,60 @@
-# Re-run 2026-09-10 at 10 seeds, replacing the original 5-seed campaign.
-# Only the tail of the progress output was captured (the run was piped through
-# `tail`); the final provenance line below is verbatim. Row and seed counts are
-# checkable directly against the parquet.
 [gate1] 1440 runs on 24 workers
-  1400/1440 elapsed=4005s fails=0
-  1425/1440 elapsed=4032s fails=0
-  1440/1440 elapsed=4040s fails=0
-[gate1] 56160 rows -> results/gate1/decay_frontier.parquet in 4040s (0 failures)
+  25/1440 elapsed=199s fails=0
+  50/1440 elapsed=340s fails=0
+  75/1440 elapsed=496s fails=0
+  100/1440 elapsed=614s fails=0
+  125/1440 elapsed=750s fails=0
+  150/1440 elapsed=900s fails=0
+  175/1440 elapsed=1050s fails=0
+  200/1440 elapsed=1172s fails=0
+  225/1440 elapsed=1326s fails=0
+  250/1440 elapsed=1428s fails=0
+  275/1440 elapsed=1536s fails=0
+  300/1440 elapsed=1644s fails=0
+  325/1440 elapsed=1738s fails=0
+  350/1440 elapsed=1845s fails=0
+  375/1440 elapsed=1943s fails=0
+  400/1440 elapsed=2051s fails=0
+  425/1440 elapsed=2154s fails=0
+  450/1440 elapsed=2258s fails=0
+  475/1440 elapsed=2365s fails=0
+  500/1440 elapsed=2442s fails=0
+  525/1440 elapsed=2530s fails=0
+  550/1440 elapsed=2609s fails=0
+  575/1440 elapsed=2683s fails=0
+  600/1440 elapsed=2772s fails=0
+  625/1440 elapsed=2867s fails=0
+  650/1440 elapsed=2947s fails=0
+  675/1440 elapsed=3035s fails=0
+  700/1440 elapsed=3120s fails=0
+  725/1440 elapsed=3183s fails=0
+  750/1440 elapsed=3236s fails=0
+  775/1440 elapsed=3291s fails=0
+  800/1440 elapsed=3341s fails=0
+  825/1440 elapsed=3397s fails=0
+  850/1440 elapsed=3451s fails=0
+  875/1440 elapsed=3510s fails=0
+  900/1440 elapsed=3562s fails=0
+  925/1440 elapsed=3609s fails=0
+  950/1440 elapsed=3665s fails=0
+  975/1440 elapsed=3706s fails=0
+  1000/1440 elapsed=3745s fails=0
+  1025/1440 elapsed=3784s fails=0
+  1050/1440 elapsed=3822s fails=0
+  1075/1440 elapsed=3865s fails=0
+  1100/1440 elapsed=3898s fails=0
+  1125/1440 elapsed=3941s fails=0
+  1150/1440 elapsed=3976s fails=0
+  1175/1440 elapsed=4017s fails=0
+  1200/1440 elapsed=4049s fails=0
+  1225/1440 elapsed=4078s fails=0
+  1250/1440 elapsed=4106s fails=0
+  1275/1440 elapsed=4138s fails=0
+  1300/1440 elapsed=4164s fails=0
+  1325/1440 elapsed=4193s fails=0
+  1350/1440 elapsed=4224s fails=0
+  1375/1440 elapsed=4250s fails=0
+  1400/1440 elapsed=4278s fails=0
+  1425/1440 elapsed=4308s fails=0
+  1440/1440 elapsed=4317s fails=0
+[gate1] 56160 rows -> results84/gate1/decay_frontier.parquet.parquet in 4317s (0 failures)

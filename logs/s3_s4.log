@@ -1,7 +1,7 @@
 [ablation] 240 runs on 24 workers
-  50/240 26s fails=0
-  100/240 34s fails=0
-  150/240 163s fails=0
-  200/240 257s fails=0
-  240/240 299s fails=0
-[ablation] 240 rows -> results/mono/s3_s4.parquet (0 failures)
+  50/240 28s fails=0
+  100/240 37s fails=0
+  150/240 164s fails=0
+  200/240 268s fails=0
+  240/240 312s fails=0
+[ablation] 240 rows -> results84/mono/s3_s4.parquet.parquet (0 failures)

@@ -72,8 +72,21 @@ class CqrWifiManager : public WifiRemoteStationManager
     /// Which quantity the monotone propagation is ordered along.
     enum OrderMode
     {
-        CQR_ORDER_REQ_SNR = 0,  //!< required SNR: the physically monotone quantity
-        CQR_ORDER_DATA_RATE = 1 //!< achievable data rate: coincides only if the table is 1-D
+        CQR_ORDER_REQ_SNR = 0,   //!< required SNR threshold, as returned by CalculateSnr
+        CQR_ORDER_DATA_RATE = 1, //!< achievable data rate: coincides only if the table is 1-D
+        CQR_ORDER_REQ_SNR_POWER = 2 //!< required SNR x width x streams: required receive power
+    };
+
+    /// Which modulation classes the rate table enumerates.
+    ///
+    /// MatchUpstream reproduces ns3::ThompsonSamplingWifiManager exactly (its ladder stops
+    /// at HE and has no EHT branch), which is what the w=0 byte-identity gate requires.
+    /// Latest extends the ladder to EHT, so that the table matches IdealWifiManager, which
+    /// skips non-EHT modes when both peers are EHT capable.
+    enum ModFamily
+    {
+        CQR_MOD_MATCH_UPSTREAM = 0, //!< HT -> VHT -> HE, identical to upstream
+        CQR_MOD_LATEST = 1          //!< ... -> EHT when both peers support it
     };
 
     /// Whether the forgetting rate is fixed or driven online.
@@ -276,6 +289,7 @@ class CqrWifiManager : public WifiRemoteStationManager
     double m_structWeight;     //!< weight applied to propagated (inferred) evidence
     double m_ber;              //!< target BER used to derive the required-SNR ordering
     OrderMode m_order;         //!< quantity the propagation order is built from
+    ModFamily m_modFamily;     //!< which modulation classes the rate table enumerates
 
     std::string m_logFile;                  //!< decision-log path; empty disables logging
     uint32_t m_instanceId;                  //!< disambiguates the per-instance log file
@@ -286,9 +300,19 @@ class CqrWifiManager : public WifiRemoteStationManager
     // set: the wrapper branches on m_costLog being empty and calls straight through, so
     // a normal run executes the same code it always did and results are unaffected.
     std::string m_costLog;         //!< cost-report path; empty disables measurement
+    std::string m_armsLog;         //!< enumerated action-set dump path; empty disables
     mutable uint64_t m_costNs{0};  //!< accumulated nanoseconds inside the propagation
     mutable uint64_t m_costCalls{0}; //!< number of propagation calls timed
     mutable uint64_t m_costRates{0}; //!< sum of rate-table sizes over those calls
+
+    // Propagated-evidence budget (protocol-v1 amendment A9.6). Eq. (1) shares
+    // w*(n_s*r + n_f*(N-1-r)) for a report at rank r, so a fixed weight does NOT fix the
+    // total pseudo-count budget: it depends on where in the order the played arm sits,
+    // and that differs between orderings. Accumulated only when CostLog is set.
+    mutable double m_budSuccMass{0.0};  //!< sum of w*n_s*r over reports
+    mutable double m_budFailMass{0.0};  //!< sum of w*n_f*(N-1-r) over reports
+    mutable uint64_t m_budTargets{0};   //!< number of (report, target) pairs written
+    mutable uint64_t m_budRankSum{0};   //!< sum of the played arm's rank, over reports
 
     TracedValue<uint64_t> m_currentRate; //!< Trace rate changes
 };

@@ -3,10 +3,9 @@
 Date 2026-09-08. `ns3::OrsWifiManager` in `contrib/cqra`, after Combes, Proutiere, Yun,
 Ok & Yi, *Optimal Rate Sampling in 802.11 Systems*, INFOCOM 2014 (arXiv:1307.7309).
 
-ORS is the closest prior work: it is the other rate-adaptation family that exploits
-structure across rates rather than treating them as independent arms, so it is the
-comparison that isolates what the required-SNR ordering adds. It was implemented from the
-paper's pseudocode, not from memory.
+This is the one comparison a reviewer who knows the rate-adaptation literature will
+demand, because ORS also exploits rate structure. It was implemented from the paper's
+pseudocode, not from memory.
 
 ## What was implemented
 All three algorithms from the paper:
@@ -21,6 +20,38 @@ All three algorithms from the paper:
 - **KL-R-UCB** (Algorithm 2) — the paper's *unstructured* control.
 
 The KL-UCB index is solved by 40-step bisection on the Bernoulli KL divergence.
+
+## What was NOT implemented, and the attribution this corrects
+
+Recorded 2026-09-12 with protocol-v1 amendment A9.5, after a reviewer pointed out that the
+manuscript characterised ORS through a linear neighbourhood and stationary asymptotics.
+
+**We implemented the linear variant.** `N(k) = {k−1, k, k+1}` is arithmetic on a position
+in a flat `std::vector` that holds every (mode, width, Nss) triple collapsed into one total
+order (`ors-wifi-manager.cc:340-348`). There is no adjacency structure anywhere in the
+module.
+
+Combes *et al.* also define a **graphical** variant (G-ORS) in which the neighbourhood is a
+graph over configurations rather than two positions on a line, precisely for the
+multiple-MIMO-mode case, and they give a sliding-window extension for non-stationary
+settings with guarantees under their assumptions. **SW-ORS below is their sliding-window
+algorithm; the graphical neighbourhood is not implemented here.**
+
+Two consequences, both of which the manuscript now states:
+
+1. A comparison against our linear SW-ORS supports a conclusion about *that* variant. It
+   does not support a conclusion about graphical ORS, and the paper must not generalise to
+   the broader class.
+2. The observation below that unstructured KL-R-UCB edges out structured SW-ORS is a
+   finite-horizon result measured outside the theorem's assumptions. Describing it as "a
+   reversal of the stationary theory" overstates it: a result outside a theorem's
+   hypotheses does not reverse the theorem. The wording is corrected.
+
+**A labelling defect in the same area.** `Window` is inert unless `Variant == SW-ORS`
+(`EvictWindow` returns immediately otherwise, `ors-wifi-manager.cc:237-240`), so tuning rows
+labelled `ORS/RequiredSnr/w1000` and `KL-R-UCB/DataRate/w1000` advertise a window the code
+never applies. No result changes — KL-R-UCB is unwindowed by design — but the labels are
+misleading and are corrected.
 
 ## Two fairness problems found and fixed before reporting any number
 1. **Unmatched arm set.** My first version enumerated every (mode, width, Nss) triple
@@ -79,8 +110,9 @@ envelope, and the paper says so itself:
   celebrated property — regret independent of K — is an *asymptotic* statement, and the
   transient is exactly what a mobile Wi-Fi link lives in.
 - **Corroborating evidence:** the *unstructured* KL-R-UCB slightly **beats** structured
-  ORS/SW-ORS here (263.1 vs ≈255), the reverse of the stationary theory. That is what one
-  expects if the neighbourhood restriction is a liability under drift rather than an asset.
+  ORS/SW-ORS here (263.1 vs ≈255). That is what one expects if the neighbourhood
+  restriction is a liability under drift rather than an asset. It is a finite-horizon
+  measurement outside the theorem's assumptions, not a contradiction of it.
 
 ## A nuance worth reporting
 The required-SNR ordering, which is decisive for our method (+1.3 pp → +14.4 pp), gives

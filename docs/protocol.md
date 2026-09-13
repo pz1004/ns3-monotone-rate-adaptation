@@ -387,3 +387,187 @@ benefit *shrank* as the table grew — the opposite of what had been expected �
 refutation is what identified the ordering as the defect and produced the required-SNR fix
 in A2. Under required-SNR ordering it grows. Both directions are reported, and the sign
 change between them is the ablation rather than a selected result.
+
+### A9 — 2026-09-12 — Pre-submission audit: an action-set defect, two metric mislabels, and a numerical error
+
+A colleague's review prompted an audit of the manuscript's claims against the ns-3.48
+source, `contrib/cqra`, the runners and the released data rather than against the PDF.
+This entry records what the audit found, **before** any code was changed in response. Six
+items follow. The first is the reason the campaign is being re-run.
+
+#### A9.1 — The genie and the learners were not on the same action set
+
+`sim/scenarios/eht-ra-gate1.cc:255` sets `WIFI_STANDARD_80211be`, but ns-3.48's shipped
+`ThompsonSamplingWifiManager::InitializeStation` has no EHT branch: its ladder runs
+HT → VHT → HE and stops. `CqrWifiManager` (`:293-311`) and `OrsWifiManager` (`:159-195`)
+mirror that faithfully — deliberately, because the w = 0 equivalence gate requires it. So
+the proposed method, the Thompson baseline and the whole ORS family learn over **HE MCS
+0–11**, 12 × 3 widths × 2 streams = **72 arms**.
+
+`IdealWifiManager` does not. `IsCandidateModulationClass`
+(`src/wifi/model/rate-control/ideal-wifi-manager.cc:617-652`) returns false for HE
+"if the node and peer are both EHT capable", so the genie enumerates **EHT MCS 0–13**, 84
+arms. `MinstrelHtWifiManager` initialises EHT groups with `UseLatestAmendmentOnly`
+defaulting to true, and the `Fixed(MCS*)` references use `EhtMcs*`. The genie, Minstrel-HT
+and the static references were on EHT; everything else was on HE.
+
+This is measurable in the released traces, not inferred. At 0 m/s the genie spends
+**73.3% of its transmissions at MCS 12–13**, configurations the sampler cannot select at
+all. Recomputing §6's mean-MCS bias with the genie confined to the sampler's own range,
+paired per run over seeds 1–5 (the subset with released per-run traces; these reproduce
+the 10-seed table to within 0.1 MCS):
+
+| speed | genie mean MCS | genie capped at 11 | Thompson | reported bias | corrected bias | genie share at MCS ≥ 12 |
+|---|---|---|---|---|---|---|
+| 0 m/s | 12.14 | 10.75 | 9.82 | **−2.32** | **−0.94** | 73.3% |
+| 2 m/s | 7.39 | 7.32 | 6.84 | −0.56 | −0.49 | 4.5% |
+| 5 m/s | 5.52 | 5.52 | 6.63 | +1.11 | +1.12 | 0.4% |
+| 20 m/s | 3.81 | 3.81 | 5.56 | +1.75 | +1.75 | 0.0% |
+
+**The sign change survives; roughly 60% of the at-rest magnitude does not.** The aggressive
+half is clean, because the genie never reaches MCS 12–13 at speed.
+
+**Resolution.** Rather than disclose the mismatch, the enumeration is being extended.
+`CqrWifiManager` and `OrsWifiManager` gain a `ModulationFamily` attribute:
+`MatchUpstream` (default) keeps the existing HE ladder so the byte-identity gate against
+stock `ThompsonSamplingWifiManager` is preserved unchanged, and `Latest` extends to EHT
+MCS 0–13 for an 84-arm table shared with the genie, Minstrel-HT and the static references.
+Because stock Thompson cannot enumerate EHT, the Thompson baseline on the 84-arm table
+becomes `Cqr(ModulationFamily=Latest, StructureWeight=0)` — which the `MatchUpstream` gate
+proves is stock Thompson on the HE table, and which gives the baseline and the proposal
+identical action sets by construction. **The whole campaign is re-run on that table**, and
+every number in the paper is regenerated from it. One residual is disclosed rather than
+engineered away: Minstrel-HT additionally enumerates guard-interval variants that no other
+manager does, so exact equality with Minstrel-HT is not achievable.
+
+#### A9.2 — "Extra PHY tx/MB" counts transmissions, not retries
+
+`sim/runner/run_ablation.py:31-37` computes `total_phy_tx / (rx_bytes/1e6)`, and
+`total_phy_tx` is incremented once per `MonitorSnifferTx` firing — every MPDU the AP PHY
+sends, first transmissions included. §6 named this metric correctly ("extra PHY
+transmissions per delivered MB"); the manuscript then described it as retries, which it is
+not. Against the 714.3 MPDU/MB floor implied by a 1400 B payload, the retry-attributable
+excess is very different from the reported ratio:
+
+| speed | reported | excess over the floor |
+|---|---|---|
+| 0 m/s | +4.9% | +415% |
+| 5 m/s | +15.2% | +38.7% |
+| 20 m/s | +40.1% | +70.7% |
+
+The metric is retained and the manuscript wording is corrected. One part of the concern
+does not hold: `MonitorSnifferTx` fires once per subframe, so the metric is invariant to
+A-MPDU length.
+
+#### A9.3 — The mean-MCS bias discards data that was collected
+
+The scenario records `mcs`, `width` and `nss` marginals, but `run_ablation.py:30-33` reads
+only the `mcs` rows. §6's "mean-MCS bias vs genie" is therefore an index-only quantity,
+which cannot express aggressiveness when width and streams vary. At 20 m/s the genie runs
+79.8 MHz / 1.90 streams while Thompson runs 71.4 MHz / 1.76 — narrower and fewer streams
+while at higher MCS. The runner now emits `mean_width` and `mean_nss`, and the paper
+reports all three marginals.
+
+#### A9.4 — Absolute throughput in the held-out table was 5% low
+
+`thr` is the **sum of 19** per-interval samples (traffic runs 0.5 → 10.0 s, sampled from
+1.0 s), but `paper/check_paper.py:79,81` divided by **20.0**. Every absolute Mb/s figure in
+the held-out table was understated by 19/20. It is a uniform scale factor, so no ratio,
+percentage, p-value or crossover in the paper is affected. The divisor is corrected and a
+regression assertion now ties it to the actual row count. The table had been marked
+"verified against the released runs"; the verifying script carried the error.
+
+#### A9.5 — Two descriptions in the manuscript that the source does not support
+
+- **`IdealWifiManager` is not an instantaneous-SNR oracle.** `m_lastSnrObserved` is set in
+  `DoReportDataOk`/`DoReportRxOk` — feedback from the previous transmission — and
+  `GetLastObservedSnr` then rescales it by the width and stream ratios before comparing it
+  with a per-configuration threshold. It is a delayed-feedback threshold selector.
+- **The ORS baseline is the linear variant.** `ors-wifi-manager.cc:340-348` explores
+  `{k−1, k, k+1}` on a flattened total order; no graph construct exists in the module.
+  Combes et al. also define a graphical variant for multiple MIMO modes, and the
+  manuscript attributed the one-dimensionality to ORS rather than to the variant we
+  implemented. `docs/ors_baseline.md` is corrected to say so. A separate labelling defect:
+  `Window` is inert unless `Variant == SW-ORS` (`:237-240`), so tuning rows labelled
+  `ORS/RequiredSnr/w1000` and `KL-R-UCB/…/w1000` carry a window the code ignores.
+
+#### A9.6 — Three things now measured that were previously argued
+
+- **The ordering contrast is reported directly.** The campaign tested each ordering against
+  Thompson but never against the other, which is the paper's actual claim. From
+  `results/mono/order_matched.parquet`, paired at matched (speed, seed, width, streams):
+  required-SNR beats data-rate by **+21.1%, 95% CI [+17.9, +24.3], paired t p = 6.5×10⁻²¹,
+  Wilcoxon p = 4.7×10⁻¹⁸, winning 99 of 120 matched runs**, and significantly in all five
+  non-degenerate (width, streams) cells. No new simulation was needed.
+- **The aggregation rule is stated.** Reported gains are a **ratio of grand means**. The
+  mean of per-run ratios gives +21.8% / +1.7% against the reported +16.8% / +0.3%; the
+  choice moves the headline by about 5 pp and was never stated.
+- **The propagated evidence budget is instrumented.** Eq. (1) shares
+  `w(n_s·r + n_f·(N−1−r))` for a report at rank `r`, so a fixed `w` does not fix the total
+  pseudo-count budget across orderings. Both orderings are permutations of the same rank
+  multiset, so the budget can differ only through the rank of the *played* arm, and at
+  20 MHz / 1 stream the orderings coincide and the runs are bit-identical — but this is now
+  measured per run rather than argued.
+
+#### A9.7 — Two scope corrections to how the scenario is described
+
+- **The stations are recipients, not contenders.** Every `OnOffHelper` is installed on the
+  AP (`eht-ra-gate1.cc:386`); the stations carry no uplink data. There is exactly one
+  contending data transmitter at every station count, so `{1, 4, 8}` varies the number of
+  downlink recipients sharing one transmitter's airtime, not the number of contenders.
+- **The crossover speed is interpolated across an unmeasured gap.** Speeds tested are
+  {0,1,2,3,5,7,10,15,20}; the reported crossover is a linear interpolation between 10 m/s
+  (ratio 1.0354) and 15 m/s (0.9626), with no measurement between, against a per-run
+  hindsight-best fixed MCS. The ratio curve is non-monotone and the first downward crossing
+  is taken. It is reported as a scenario-dependent estimate with its bracket stated.
+
+#### A9.8 — The equivalence gate covers the w = 0 path only
+
+All 27 configurations in `verify_equivalence.py` are Decay × speed × seed **at w = 0**. The
+gate establishes that the reimplementation introduces no incidental difference from the
+shipped sampler — which is what it is claimed for — but it does not exercise any
+propagation path, and the manuscript is corrected so a reader cannot read it as doing so.
+A related implementation detail now stated in the paper: `SampleBetaVariable` takes
+`uint64_t` shape arguments in both stock ns-3 and our module, so propagated mass at
+w = 0.25 is truncated until four shared observations accumulate.
+
+#### A9.9 — Two run-configuration defects found while re-running
+
+**The released `reproduce.sh` cannot reproduce the envelope references.** `run_gate1.py`
+defaults to `--sim-time 20` while `run_ablation.py` defaults to `10`. The original envelope
+sweep passed `10` explicitly, so its references span the same window as the campaign they
+are compared against; the invocation recovered into `reproduce.sh` dropped the flag. Run as
+published it yields 39 sampling intervals per run instead of 19 — 17,550 rows rather than
+the 8,550 the file records — and a station that has travelled twice as far, so the static
+references come out materially different at 1 m/s. The flag is restored and the row-count
+assertion now checks the interval count, not just the row total, which is what let this
+through. No published number was wrong; the script that regenerates them was.
+
+**The interval count is now carried in the data.** Every run records `n_intervals`, and the
+analysis divides by it rather than by a constant derived from the run length. This closes
+A9.4 at the source instead of at the one call site where it happened to bite.
+
+#### A9.10 — What the re-run covers, and what it does not
+
+The 84-arm re-run replaced every input the paper reports from: the campaign, the bias
+diagnostic, the ordering ablation, the weight selection and its held-out evaluation, the
+S3/S4 splits, the forgetting-rate frontier, the static references, the threshold sweep and
+the fairness measurement. `verify_equivalence.py` still passes 27/27 on the upstream
+enumeration, and the released analysis scripts reproduce every macro and figure in the
+manuscript byte for byte.
+
+Three things were **not** re-run, and no reported number depends on them:
+
+- **`results/decision_cost.parquet`.** The propagation-cost measurement in A7 was taken on
+  the 72-arm table. The cost is linear in table size at 14.6 ns per rate plus 302 ns fixed,
+  so an 84-arm table implies roughly 1.5 µs per decision rather than the 1.34 µs quoted
+  there. That is still a fraction of a percent of one core, and the paper makes no
+  numerical claim about it, but A7's table should be read as a 72-arm measurement.
+- **The ORS tuning sweeps** (`results/ors/`). Window and ordering were selected on the
+  72-arm table and the selected members were carried into the 84-arm campaign, so the
+  comparison in the paper is on the corrected table while the *selection* behind it was
+  made on the earlier one. A selection made on a smaller table can only disadvantage ORS if
+  it is wrong, so this is recorded rather than corrected.
+- **The earlier-phase exploratory sweeps** (`gate1/` except the decay frontier, and
+  `mono/{configspace,h3_snr,heldout_S2,tune_split}`), which document how the work reached
+  its current form. They are retained at 72 arms and labelled as such in the README.

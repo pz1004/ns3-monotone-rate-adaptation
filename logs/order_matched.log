@@ -1,12 +1,14 @@
-[ablation] 480 runs on 24 workers
-  50/480 36s fails=0
-  100/480 71s fails=0
-  150/480 103s fails=0
-  200/480 137s fails=0
-  250/480 165s fails=0
-  300/480 187s fails=0
-  350/480 211s fails=0
-  400/480 232s fails=0
-  450/480 254s fails=0
-  480/480 268s fails=0
-[ablation] 480 rows -> results/mono/order_matched.parquet (0 failures)
+[ablation] 600 runs on 24 workers
+  50/600 39s fails=0
+  100/600 72s fails=0
+  150/600 106s fails=0
+  200/600 144s fails=0
+  250/600 175s fails=0
+  300/600 209s fails=0
+  350/600 233s fails=0
+  400/600 256s fails=0
+  450/600 277s fails=0
+  500/600 301s fails=0
+  550/600 323s fails=0
+  600/600 344s fails=0
+[ablation] 600 rows -> results84/mono/order_matched.parquet.parquet (0 failures)

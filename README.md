@@ -28,7 +28,7 @@ that regenerate every number and figure in the paper from those outputs.
 | `ns3/scratch/eht-ra-gate1.cc` | The 802.11be scenario: 1 AP + N STAs, saturated downlink UDP, log-distance path loss with optional Jakes fading. |
 | `runner/` | Parallel campaign drivers, plus `verify_equivalence.py` — the `w=0` equivalence gate. |
 | `analysis/` | The campaign analyses, and the three generators that produce every table and figure in the paper. |
-| `results/` | All released run outputs (~13 MB). `campaign/full.parquet` is the 11,520-run campaign. |
+| `results/` | All released run outputs. `campaign/full.parquet` is the 11,520-run campaign; `exactness/armset_*.csv` are the enumerated action sets. See *Which data is which* below. |
 | `logs/` | The 19 run logs, each ending in the row count and destination of its campaign. |
 | [`docs/protocol.md`](docs/protocol.md) | The evaluation protocol, frozen before the method was tuned. **Read [`docs/protocol.md`](docs/protocol.md) before the results.** |
 | [`docs/ors_baseline.md`](docs/ors_baseline.md) | How the ORS family was reimplemented, and the fairness decisions taken. |
@@ -102,7 +102,57 @@ This runs `ThompsonSampling` against `Cqr --cqrStructWeight=0.0` across 27 confi
 of forgetting rate × speed × seed and requires **exact** float equality, not closeness.
 It must print `27/27 byte-identical`. Re-run it after any change to the module.
 
+Two things it does and does not establish. It runs on the upstream 72-arm enumeration,
+because that is the only table the shipped sampler can build — see *The action set*. And it
+exercises the `w=0` path only: it shows the reimplementation adds no incidental difference
+from the shipped sampler, which is what makes a measured difference attributable to the
+propagation rule, but it is not itself a test of that rule. The matched ordering ablation
+is.
+
 ---
+
+## The action set
+
+Every learning manager acts on the same table: **84 configurations** — EHT MCS 0–13 ×
+{20, 40, 80} MHz × {1, 2} spatial streams, at a fixed 800 ns guard interval. This is the
+table `IdealWifiManager`, `MinstrelHtWifiManager` and the `ConstantRate` references already
+use on an 802.11be device. The enumerations are released as
+`results/exactness/armset_latest.csv` (84 rows) and `armset_matchupstream.csv` (72), dumped
+by the module itself via its `ArmsLog` attribute rather than inferred from what happened to
+be played.
+
+This needs saying because ns-3.48's shipped `ThompsonSamplingWifiManager` stops its
+modulation-class ladder at HE and has no EHT branch, so it enumerates only 72 arms. Both
+managers here expose a `ModulationFamily` attribute:
+
+| Value | Enumerates | Used for |
+|---|---|---|
+| `MatchUpstream` *(default)* | HT → VHT → HE, 72 arms | the `w=0` equivalence gate, which must reproduce the shipped sampler byte for byte |
+| `Latest` | … → EHT, 84 arms | every campaign result in the paper |
+
+Because the shipped sampler cannot enumerate EHT, the Thompson baseline on the 84-arm table
+is run as `CqrWifiManager` with propagation disabled — the path `verify_equivalence.py`
+proves byte-identical to the shipped sampler on the 72-arm table. Baseline and proposal
+therefore share an action set by construction. Minstrel-HT is the one arm that cannot be
+matched exactly: it additionally sweeps guard interval, so its table is larger.
+Amendment A9.1 in [`docs/protocol.md`](docs/protocol.md) records how this was found and
+what it changed.
+
+`reproduce.sh` honours `MOD_FAMILY=MatchUpstream` if you want the earlier 72-arm
+enumeration instead.
+
+## Which data is which
+
+Not every file here comes from the same campaign, and the difference matters.
+
+| Files | Provenance |
+|---|---|
+| `campaign/`, `diag/`, `threshold/`, `adaptdecay/`, `envelope/`, `fairness/`, `exactness/`, `gate1/decay_frontier.parquet`, and `mono/{order_matched,frontier_test,tune_snr,heldout_snr,s3_s4,monodecay_*}.parquet` | The **84-arm** campaign. Everything the paper reports comes from these. |
+| `day3_validation/` | Stock managers only, driven through ns-3's own `wifi-manager-example`. Independent of the action-set question. |
+| `gate1/{contention_speed,eht_mobility,speed_fading,speed_sweep}.parquet`, `mono/{configspace,h3_snr,heldout_S2,tune_split}.parquet`, `ors/`, `fer/`, `fading_check/`, `smoke/`, `decision_cost.parquet` | Earlier-phase exploratory sweeps, taken on the **72-arm** enumeration and **not** re-run. No number in the paper depends on them; they are kept because they were part of the original release and document how the work got here. |
+
+The per-decision logs under `diag/f2_*.dec.csv.*` belong to the calibrated-quantile rule
+that amendment A1 withdrew. They are retained for the same reason.
 
 ## Reproducing the tables and figures
 
@@ -119,18 +169,18 @@ rather than drawing a figure that disagrees with the prose, so the order matters
 
 | Paper artefact | Produced by | From |
 |---|---|---|
-| Table I — selection bias of discounted Thompson sampling | `make_numbers.py` | `results/diag/bias10.parquet` |
+| Table I — selected MCS, PHY rate and transmissions vs the genie | `make_numbers.py` | `results/diag/bias10.parquet` |
 | Table II — scenario parameters | *(static)* | — |
 | Table III — effect of the propagation ordering | `make_numbers.py` | `results/mono/order_matched.parquet` |
-| Table IV — campaign result | `make_numbers.py` | `results/campaign/full.parquet` |
-| Table V — held-out speeds, absolute throughput | `make_numbers.py` | `results/campaign/full.parquet`, `results/envelope/references.parquet` |
-| Table VI — per-cell audit | `make_percell.py` | `results/campaign/full.parquet` |
-| Fig. 1 — bias reverses at walking pace (`out/f1_bias.png`) | `make_figs.py` | `results/diag/bias10.parquet` |
-| Fig. 3 — proposed vs the swept frontier (`out/f2_ordering.png`) | `make_figs.py` | `results/mono/{order_matched,frontier_test}.parquet` |
-| Fig. 4 — mobility crossover (`out/f3_refs.png`) | `make_figs.py` | `results/threshold/sweep.parquet` |
+| Table IV — held-out speeds, absolute throughput | `make_numbers.py` | `results/campaign/full.parquet`, `results/envelope/references.parquet` |
+| Table V — per-cell audit | `make_percell.py` | `results/campaign/full.parquet` |
+| Fig. 2 — proposed vs the swept frontier, and the ordering (`out/f2_ordering.png`) | `make_figs.py` | `results/mono/{order_matched,frontier_test}.parquet` |
+| Fig. 3 — mobility crossover (`out/f3_refs.png`) | `make_figs.py` | `results/threshold/sweep.parquet` |
 
-(Fig. 2 in the paper is the algorithm diagram and has no data behind it, which is why the
-generated filenames `f1`–`f3` run one behind the figure numbers from Fig. 3 onward.)
+`make_figs.py` also writes `out/f1_bias.png`, the diagnostic plot. The paper dropped it as a
+duplicate of Table I and the generator still produces it, so the filenames `f1`–`f3` no
+longer line up with the paper's figure numbers. Fig. 1 in the paper is the algorithm
+diagram and has no data behind it.
 
 Standalone analyses, printing the pre-registered statistics to stdout:
 

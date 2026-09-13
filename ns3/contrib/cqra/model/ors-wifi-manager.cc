@@ -77,7 +77,17 @@ OrsWifiManager::GetTypeId()
                           EnumValue(OrsWifiManager::ORS_BY_RATE),
                           MakeEnumAccessor<OrsWifiManager::Order>(&OrsWifiManager::m_order),
                           MakeEnumChecker(OrsWifiManager::ORS_BY_RATE, "DataRate",
-                                          OrsWifiManager::ORS_BY_SNR, "RequiredSnr"))
+                                          OrsWifiManager::ORS_BY_SNR, "RequiredSnr",
+                                          OrsWifiManager::ORS_BY_SNR_POWER,
+                                          "RequiredSnrPower"))
+            .AddAttribute("ModulationFamily",
+                          "Which modulation classes the rate table enumerates. "
+                          "MatchUpstream stops at HE, as ns3::ThompsonSamplingWifiManager "
+                          "does; Latest extends to EHT, matching IdealWifiManager.",
+                          EnumValue(OrsWifiManager::ORS_MOD_MATCH_UPSTREAM),
+                          MakeEnumAccessor<OrsWifiManager::ModFamily>(&OrsWifiManager::m_modFamily),
+                          MakeEnumChecker(OrsWifiManager::ORS_MOD_MATCH_UPSTREAM, "MatchUpstream",
+                                          OrsWifiManager::ORS_MOD_LATEST, "Latest"))
             .AddAttribute("Window", "Sliding-window size tau, in reports (SW-ORS only).",
                           UintegerValue(200),
                           MakeUintegerAccessor(&OrsWifiManager::m_window),
@@ -170,6 +180,10 @@ OrsWifiManager::InitializeStation(WifiRemoteStation* st) const
     {
         mc = WIFI_MOD_CLASS_HE;
     }
+    if (m_modFamily == ORS_MOD_LATEST && GetEhtSupported())
+    {
+        mc = WIFI_MOD_CLASS_EHT;
+    }
     for (const auto& mode : GetPhy()->GetMcsList())
     {
         if (mode.GetModulationClass() != mc)
@@ -202,7 +216,7 @@ OrsWifiManager::InitializeStation(WifiRemoteStation* st) const
     for (size_t i = 0; i < s->rates.size(); ++i)
     {
         double k;
-        if (m_order == ORS_BY_SNR)
+        if (m_order == ORS_BY_SNR || m_order == ORS_BY_SNR_POWER)
         {
             WifiTxVector tv;
             tv.SetMode(s->rates[i].mode);
@@ -212,6 +226,14 @@ OrsWifiManager::InitializeStation(WifiRemoteStation* st) const
             k = tv.IsValid(GetPhy()->GetPhyBand())
                     ? GetPhy()->CalculateSnr(tv, m_ber)
                     : std::numeric_limits<double>::max();
+            if (m_order == ORS_BY_SNR_POWER && k != std::numeric_limits<double>::max())
+            {
+                // See CqrWifiManager::BuildRateOrder: CalculateSnr is referenced to the
+                // noise in the configuration's own bandwidth, so raw thresholds are not
+                // comparable across widths or stream counts.
+                k *= static_cast<double>(s->rates[i].channelWidth) *
+                     static_cast<double>(s->rates[i].nss);
+            }
         }
         else
         {

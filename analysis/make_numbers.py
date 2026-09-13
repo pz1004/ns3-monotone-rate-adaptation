@@ -23,10 +23,20 @@ def putn(k, n):
     if n < len(_WORDS):
         put(k + "Word", _WORDS[n]); put(k + "WordCap", _WORDS[n].capitalize())
 
+def _texp(v, plain=0.01):
+    """p-value as LaTeX: plain decimal above `plain`, else a x 10^{-b} with no zero pad."""
+    if v >= plain:
+        return f"{v:.2f}"
+    m, e = f"{v:.0e}".split("e")
+    return rf"{m}\times10^{{{int(e)}}}"
+
 # ---------- starvation (Day-3 manager sweep) ----------
 d = pd.read_parquet(f"{R}/day3_validation/mgr_sweep.parquet")
 o = d[d.series == "observed"].copy()
-nmcs = {"802.11n-5GHz": 8, "802.11ac": 10, "802.11ax-5GHz": 12, "802.11be-5GHz": 12}
+# MCS count per spatial stream, per amendment. EHT defines MCS 0-13 (ns-3's EhtPhy
+# registers 14), not 12: 802.11be adds the two 4096-QAM rates on top of HE's twelve.
+# This was 12 and understated the 802.11be table by a sixth (protocol-v1 A9.1).
+nmcs = {"802.11n-5GHz": 8, "802.11ac": 10, "802.11ax-5GHz": 12, "802.11be-5GHz": 14}
 o["nw"] = np.log2(o.width_mhz / 20).astype(int) + 1
 o["n_rates"] = o.standard.map(nmcs) * o.nss * o.nw
 o["rank"] = o.groupby("run_id").snr_db.rank(ascending=False)
@@ -58,10 +68,16 @@ _t = jf[jf.arm == "Thompson"].set_index(_k).jain
 _m = jf[jf.arm == "Minstrel-HT"].set_index(_k).jain
 _d = (_p - _t).dropna()
 assert len(_d) == 120, f"paired fairness comparison lost rows: {len(_d)}"
-# A signed mean that rounds to -0.000 tells a reader nothing; the informative
-# quantity is how tightly the difference is bounded.
+# Report the paired difference itself with an interval. On the matched action set this
+# is no longer a null result -- it favours the method -- so bounding it without stating
+# its sign would now understate what was measured.
+_lo, _hi = stats.t.interval(0.95, len(_d) - 1, _d.mean(), stats.sem(_d))
+put("JainVsThompson",   f"{_d.mean():+.3f}")
+put("JainVsThompsonLo", f"{_lo:+.3f}")
+put("JainVsThompsonHi", f"{_hi:+.3f}")
 put("JainCIThompson", f"{1.96 * _d.sem():.3f}")
-put("JainPThompson",  f"{stats.ttest_rel(_p.loc[_d.index], _t.loc[_d.index]).pvalue:.2f}")
+_pv = stats.ttest_rel(_p.loc[_d.index], _t.loc[_d.index]).pvalue
+put("JainPThompson", _texp(_pv))
 _dm = (_p - _m).dropna()
 put("JainVsMinstrel", f"{_dm.mean():+.2f}")
 
@@ -84,12 +100,42 @@ ts = b[b.arm.str.startswith("Thompson")][["speed","seed","mean_mcs","tx_per_MB"]
 m = ts.merge(idl, on=["speed","seed"])
 m["bias"] = m.mean_mcs - m.i_mcs
 m["txoh"] = 100*(m.tx_per_MB/m.i_tx - 1)
+# tx_per_MB counts EVERY MPDU the PHY sends, first transmissions included, so it is not a
+# retry count (protocol-v1 amendment A9.2). A 1400 B payload implies a floor of
+# 1e6/1400 = 714.3 MPDU per delivered MB even with zero retries; the excess over that
+# floor is the retry-attributable part, and it behaves very differently.
+PAYLOAD_B = 1400.0
+FLOOR = 1e6 / PAYLOAD_B
+# Report the excess in ABSOLUTE MPDU/MB, not as a ratio. At rest the genie sits almost
+# exactly on the floor (about 9 MPDU/MB above it), so a ratio there has a near-zero
+# denominator and reads as several hundred percent for a small absolute difference.
+m["exc_i"] = m.i_tx - FLOOR
+m["exc_t"] = m.tx_per_MB - FLOOR
+# Aggressiveness in MCS index alone is ambiguous once width and streams vary; report the
+# selected PHY rate too when the runner supplied it (A9.3).
+_has_rate = {"mean_phyrate"}.issubset(b.columns)
+if _has_rate:
+    idl2 = b[b.arm=="Ideal"][["speed","seed","mean_phyrate","mean_width","mean_nss"]].rename(
+        columns={"mean_phyrate":"i_rate","mean_width":"i_w","mean_nss":"i_n"})
+    m = m.merge(idl2, on=["speed","seed"], how="left").merge(
+        b[b.arm.str.startswith("Thompson")][["speed","seed","mean_phyrate","mean_width","mean_nss"]],
+        on=["speed","seed"], how="left")
+    m["ratedev"] = 100*(m.mean_phyrate/m.i_rate - 1)
 for sp in sorted(m.speed.unique()):
     s = m[m.speed==sp]
     tag = "V" + str(int(sp))
     put(f"Bias{tag}",   f"{s.bias.mean():+.2f}")
     put(f"BiasCI{tag}", f"{1.96*s.bias.std(ddof=1)/np.sqrt(len(s)):.2f}")
     put(f"TxOh{tag}",   f"{s.txoh.mean():+.1f}")
+    put(f"ExcGenie{tag}", f"{s.exc_i.mean():.0f}")
+    put(f"ExcThom{tag}",  f"{s.exc_t.mean():.0f}")
+    if _has_rate:
+        put(f"RateDev{tag}", f"{s.ratedev.mean():+.1f}")
+        # Sec. III claims the two stop choosing the same SHAPE of configuration under
+        # motion; tie that sentence to the marginals rather than asserting it.
+        put(f"GenieW{tag}", f"{s.i_w.mean():.0f}");  put(f"GenieNss{tag}", f"{s.i_n.mean():.2f}")
+        put(f"ThomW{tag}",  f"{s.mean_width.mean():.0f}")
+        put(f"ThomNss{tag}", f"{s.mean_nss.mean():.2f}")
 put("BiasRestAbs", f"{abs(m[m.speed==0].bias.mean()):.1f}")
 put("BiasFastAbs", f"{m[m.speed==20].bias.mean():.2f}")
 put("TxOhFastAbs", f"{m[m.speed==20].txoh.mean():.1f}")
@@ -107,7 +153,11 @@ def order_gain(arm):
                                 suffixes=("", "_t"))
     return 100 * (j.thr.mean() / j.thr_t.mean() - 1), stats.ttest_rel(j.thr, j.thr_t).pvalue
 
-def order_scaling(arm, mcs_per_ss=12):
+# MCS per spatial stream, read from the released action-set dump so it tracks the
+# amendment actually simulated (EHT defines 14, HE 12) instead of being pinned.
+_MCS_PER_SS = int(pd.read_csv(_paths.RESULTS / "exactness/armset_latest.csv").mcs.nunique())
+
+def order_scaling(arm, mcs_per_ss=_MCS_PER_SS):
     """% throughput gain over the same Thompson reference, against rate-table size."""
     rows = []
     for (wd, ns), k in om.groupby(["width", "nss"]):
@@ -135,6 +185,75 @@ put("CorrDataRate", f"{c_old:.2f}")
 put("CorrReqSnr",   f"{c_new:+.2f}")
 put("ScaleSmallN", f"{int(arr[0,0])}");  put("ScaleSmallPct", f"{arr[0,1]:+.1f}")
 put("ScaleBigN",   f"{int(arr[-1,0])}"); put("ScaleBigPct",   f"{arr[-1,1]:+.1f}")
+
+# THE contrast the paper's claim is actually about. Testing each ordering against
+# Thompson separately is not the same as testing them against each other, and the
+# campaign never reported the latter. Paired at matched (speed, seed, width, nss).
+def order_paired(arm_a, arm_b):
+    j = (om[om.arm == arm_a].set_index(KEYW).thr
+         .to_frame("a").join(om[om.arm == arm_b].set_index(KEYW).thr.to_frame("b"),
+                             how="inner").dropna())
+    d = 100 * (j.a / j.b - 1)
+    n = len(d)
+    lo, hi = stats.t.interval(0.95, n - 1, d.mean(), stats.sem(d))
+    return dict(pct=d.mean(), lo=lo, hi=hi, n=n, wins=int((j.a > j.b).sum()),
+                p=stats.ttest_rel(j.a, j.b).pvalue,
+                pw=stats.wilcoxon(j.a, j.b).pvalue)
+
+_pr = order_paired(ARM_SNR, ARM_RATE)
+put("OrderPairedPct",  f"{_pr['pct']:+.1f}")
+put("OrderPairedLo",   f"{_pr['lo']:+.1f}")
+put("OrderPairedHi",   f"{_pr['hi']:+.1f}")
+putn("OrderPairedN",    _pr["n"])
+putn("OrderPairedWins", _pr["wins"])
+put("OrderPairedP",    _texp(_pr["p"]))
+
+# The aggregation rule is not neutral: ratio-of-means and mean-of-ratios differ by ~5 pp
+# on this grid, and the paper never said which it used. State it, and print both.
+def _mean_of_ratios(arm):
+    j = (om[om.arm == arm].set_index(KEYW).thr.to_frame("a")
+         .join(om[om.arm == OM_REF].set_index(KEYW).thr.to_frame("t"), how="inner").dropna())
+    return 100 * (j.a / j.t - 1).mean()
+put("GainReqSnrMoR",   f"{_mean_of_ratios(ARM_SNR):+.1f}")
+put("GainDataRateMoR", f"{_mean_of_ratios(ARM_RATE):+.1f}")
+
+# The bandwidth/stream-normalised ordering. ns-3's own genie compares a candidate's
+# threshold against an observed SNR divided by (width/widthObs) and (nss/nssObs), so the
+# key that is monotone in required RECEIVE power is threshold x width x nss, not the raw
+# threshold this method sorts on. Running it as a third arm settles whether the result
+# depends on the SNR reference convention (protocol-v1 amendment A9.5).
+ARM_PWR = "Mono/RequiredSnrPower(w=0.25)"
+if (om.arm == ARM_PWR).any():
+    g_pwr, _ = order_gain(ARM_PWR)
+    put("GainPowerOrder", f"{g_pwr:+.1f}")
+    _pw = order_paired(ARM_PWR, ARM_SNR)
+    put("PowerVsSnrPct", f"{_pw['pct']:+.2f}")
+    put("PowerVsSnrLo",  f"{_pw['lo']:+.2f}")
+    put("PowerVsSnrHi",  f"{_pw['hi']:+.2f}")
+    put("PowerVsSnrP",   f"{_pw['p']:.2f}")
+    putn("PowerVsSnrWins", _pw["wins"])
+    c_pwr, _ = order_scaling(ARM_PWR)
+    put("CorrPowerOrder", f"{c_pwr:+.2f}")
+
+# ---------- the evaluated controller, stated rather than left to be reconstructed ------
+# Sec. V never named the campaign configuration; a reader could not identify the system
+# being reported (protocol-v1 amendment A9.6).
+_camp = pd.read_parquet(f"{R}/campaign/full.parquet")
+_mono = _camp[_camp.arm == "Mono(w=0.25)"]
+assert _mono.w.nunique() == 1 and _mono.decay.nunique() == 1, "campaign arm is not unique"
+put("CampW", f"{_mono.w.iloc[0]:g}")
+put("CampLambda", f"{_mono.decay.iloc[0]:g}")
+
+# ---------- the action set, read from the released enumeration dump --------------------
+_arms = pd.read_csv(_paths.RESULTS / "exactness/armset_latest.csv")
+putn("ArmsTotal", len(_arms))
+putn("ArmsMcs", _arms.mcs.nunique())
+putn("ArmsMcsMax", int(_arms.mcs.max()))
+putn("ArmsWidths", _arms.width.nunique())
+putn("ArmsNss", _arms.nss.nunique())
+put("ArmsFamily", str(_arms["mode"].iloc[0])[:3].upper())
+_up = pd.read_csv(_paths.RESULTS / "exactness/armset_matchupstream.csv")
+putn("ArmsUpstream", len(_up))
 
 # On a one-dimensional table the two orderings ARE the same function, so the control
 # must reproduce the treatment exactly. It does, bit for bit -- state the check, and
@@ -294,6 +413,18 @@ put("PatternBFixLo", f"{min(flo):+.1f}"); put("PatternBFixHi", f"{max(flo):+.1f}
 th = pd.read_parquet(f"{R}/threshold/sweep.parquet")
 tf = th[th.arm.str.startswith("Fixed(")]
 orc = tf.sort_values("thr").groupby(["speed","seed"]).tail(1).rename(columns={"thr":"ref"})[["speed","seed","ref"]]
+# The crossover is an interpolation between TESTED speeds, and the bracket matters: it
+# is not a measured boundary (protocol-v1 amendment A9.7). Emit the bracket so the paper
+# can state it rather than implying a resolution the sweep does not have.
+def cross_bracket(arm):
+    a = th[th.arm == arm].groupby(["speed", "seed"]).thr.sum().rename("ad").reset_index()
+    j = a.merge(orc, on=["speed", "seed"]).groupby("speed").mean(numeric_only=True)
+    x, y = j.index.values, (j.ad / j.ref).values
+    for i in range(len(x) - 1):
+        if y[i] >= 1.0 > y[i + 1]:
+            return x[i], x[i + 1], y[i], y[i + 1]
+    return (float("nan"),) * 4
+
 def cross(arm):
     a = th[th.arm==arm].groupby(["speed","seed"]).thr.sum().rename("ad").reset_index()
     j = a.merge(orc,on=["speed","seed"]).groupby("speed").mean(numeric_only=True)
@@ -303,6 +434,11 @@ def cross(arm):
             return x[i]+(1.0-y[i])/(y[i+1]-y[i])*(x[i+1]-x[i])
     return float("nan")
 put("CrossOurs", f"{cross('Mono(w=0.25)'):.1f}")
+_lo, _hi, _ylo, _yhi = cross_bracket("Mono(w=0.25)")
+put("CrossOursLo", f"{_lo:g}"); put("CrossOursHi", f"{_hi:g}")
+put("CrossOursRatioLo", f"{_ylo:.3f}"); put("CrossOursRatioHi", f"{_yhi:.3f}")
+_tlo, _thi, _, _ = cross_bracket("Thompson(d=2.0)")
+put("CrossThompsonLo", f"{_tlo:g}"); put("CrossThompsonHi", f"{_thi:g}")
 put("CrossThompson", f"{cross('Thompson(d=2.0)'):.1f}")
 put("CrossRatio", f"{cross('Mono(w=0.25)')/cross('Thompson(d=2.0)'):.1f}")
 put("CrossOursRound", f"{cross('Mono(w=0.25)'):.0f}")
@@ -319,6 +455,12 @@ j = fixm.merge(aa, on=["speed","seed"])
 net = 100*(j.adapt.mean()/j.fixed.mean() - 1)
 z = j[j.speed==0]
 put("AdaptNet",  f"{net:+.1f}")
+# The two aggregations disagree in SIGN on this ablation -- the grand-mean ratio is
+# dominated by the high-throughput resting cell while per-run ratios weight cells
+# equally -- and a paired test detects no difference at all. Quoting one net number
+# would make a conclusion out of an aggregation choice, so emit the test as well.
+put("AdaptNetMoR", f"{(100*(j.adapt/j.fixed - 1)).mean():+.1f}")
+put("AdaptP", f"{stats.ttest_rel(j.adapt, j.fixed).pvalue:.2f}")
 put("AdaptRest", f"{100*(z.adapt.mean()/z.fixed.mean()-1):+.1f}")
 mv = j[j.speed>0]
 lo = min(100*(g.adapt.mean()/g.fixed.mean()-1) for _,g in mv.groupby("speed"))

@@ -44,8 +44,16 @@ class OrsWifiManager : public WifiRemoteStationManager
     /// How the rate index is ordered, which defines the neighbourhood N(k).
     enum Order
     {
-        ORS_BY_RATE = 0, //!< by achievable data rate, as published
-        ORS_BY_SNR = 1   //!< by required SNR
+        ORS_BY_RATE = 0,     //!< by achievable data rate, as published
+        ORS_BY_SNR = 1,      //!< by required SNR threshold
+        ORS_BY_SNR_POWER = 2 //!< by required SNR x width x streams (required receive power)
+    };
+
+    /// Which modulation classes the rate table enumerates. See CqrWifiManager::ModFamily.
+    enum ModFamily
+    {
+        ORS_MOD_MATCH_UPSTREAM = 0, //!< HT -> VHT -> HE, as ns3::ThompsonSamplingWifiManager
+        ORS_MOD_LATEST = 1          //!< ... -> EHT when both peers support it
     };
 
   private:
@@ -81,6 +89,7 @@ class OrsWifiManager : public WifiRemoteStationManager
 
     Variant m_variant;  //!< algorithm variant
     Order m_order;      //!< rate ordering defining the neighbourhood
+    ModFamily m_modFamily; //!< which modulation classes the rate table enumerates
     uint32_t m_window;  //!< sliding-window size tau, in reports (SW-ORS only)
     double m_c;         //!< the constant c in the index budget
     double m_ber;       //!< target BER for the required-SNR ordering

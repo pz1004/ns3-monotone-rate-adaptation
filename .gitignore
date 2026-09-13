@@ -47,3 +47,7 @@ __pycache__/
 .idea/
 .DS_Store
 *.swp
+
+# Derived plots. The generators write figures to out/; anything rendered into results/
+# is a leftover that can go stale against the parquet beside it.
+results/**/*.png

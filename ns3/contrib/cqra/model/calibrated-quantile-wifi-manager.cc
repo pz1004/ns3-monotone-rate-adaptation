@@ -182,7 +182,28 @@ CqrWifiManager::GetTypeId()
                           EnumValue(CqrWifiManager::CQR_ORDER_REQ_SNR),
                           MakeEnumAccessor<CqrWifiManager::OrderMode>(&CqrWifiManager::m_order),
                           MakeEnumChecker(CqrWifiManager::CQR_ORDER_REQ_SNR, "RequiredSnr",
-                                          CqrWifiManager::CQR_ORDER_DATA_RATE, "DataRate"))
+                                          CqrWifiManager::CQR_ORDER_DATA_RATE, "DataRate",
+                                          CqrWifiManager::CQR_ORDER_REQ_SNR_POWER,
+                                          "RequiredSnrPower"))
+            .AddAttribute("ArmsLog",
+                          "If set, write the enumerated action set (mode, width, streams) "
+                          "here once per station. Answers 'which tuples does this "
+                          "controller actually act on' by enumeration rather than by "
+                          "observing which arms happened to be played.",
+                          StringValue(""),
+                          MakeStringAccessor(&CqrWifiManager::m_armsLog),
+                          MakeStringChecker())
+            .AddAttribute("ModulationFamily",
+                          "Which modulation classes the rate table enumerates. "
+                          "MatchUpstream stops the ladder at HE, exactly as "
+                          "ns3::ThompsonSamplingWifiManager does, and is what the w=0 "
+                          "byte-identity gate runs against. Latest extends it to EHT, "
+                          "matching IdealWifiManager, which skips non-EHT modes when both "
+                          "peers are EHT capable.",
+                          EnumValue(CqrWifiManager::CQR_MOD_MATCH_UPSTREAM),
+                          MakeEnumAccessor<CqrWifiManager::ModFamily>(&CqrWifiManager::m_modFamily),
+                          MakeEnumChecker(CqrWifiManager::CQR_MOD_MATCH_UPSTREAM, "MatchUpstream",
+                                          CqrWifiManager::CQR_MOD_LATEST, "Latest"))
             .AddAttribute("DecayAdapt",
                           "Fixed uses the Decay attribute unchanged; Adaptive drives it "
                           "from the excess prediction error on the played arm.",
@@ -259,9 +280,11 @@ CqrWifiManager::~CqrWifiManager()
                 std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count());
         }
         std::ofstream f(m_costLog + "." + std::to_string(m_instanceId));
-        f << "calls,total_ns,sum_rates,clock_pair_ns_x1e6\n";
+        f << "calls,total_ns,sum_rates,clock_pair_ns_x1e6,"
+             "succ_mass,fail_mass,targets,rank_sum\n";
         f << m_costCalls << "," << m_costNs << "," << m_costRates << ","
-          << (pairNs * 1000000ULL / kCal) << "\n";
+          << (pairNs * 1000000ULL / kCal) << "," << m_budSuccMass << "," << m_budFailMass
+          << "," << m_budTargets << "," << m_budRankSum << "\n";
         f.close();
     }
 }
@@ -290,7 +313,10 @@ CqrWifiManager::InitializeStation(WifiRemoteStation* st) const
         return;
     }
 
-    // Add HT, VHT or HE MCSes
+    // Add HT, VHT, HE or EHT MCSes. The ladder below CQR_MOD_LATEST is character-for-
+    // character the upstream one: ThompsonSamplingWifiManager::InitializeStation stops at
+    // HE and has no EHT branch, so MatchUpstream must stop there too or the w=0
+    // equivalence gate cannot be byte-identical.
     for (const auto& mode : GetPhy()->GetMcsList())
     {
         for (MHz_u j{20}; j <= GetPhy()->GetChannelWidth(); j *= 2)
@@ -303,6 +329,10 @@ CqrWifiManager::InitializeStation(WifiRemoteStation* st) const
             if (GetHeSupported())
             {
                 modulationClass = WIFI_MOD_CLASS_HE;
+            }
+            if (m_modFamily == CQR_MOD_LATEST && GetEhtSupported())
+            {
+                modulationClass = WIFI_MOD_CLASS_EHT;
             }
             if (mode.GetModulationClass() == modulationClass)
             {
@@ -344,6 +374,19 @@ CqrWifiManager::InitializeStation(WifiRemoteStation* st) const
     }
 
     NS_ASSERT_MSG(!station->m_mcsStats.empty(), "No usable MCS found");
+
+    if (!m_armsLog.empty())
+    {
+        std::ofstream af(m_armsLog + "." + std::to_string(m_instanceId));
+        af << "idx,mode,mcs,width,nss\n";
+        for (size_t i = 0; i < station->m_mcsStats.size(); ++i)
+        {
+            const auto& r = station->m_mcsStats.at(i);
+            af << i << "," << r.mode.GetUniqueName() << "," << +r.mode.GetMcsValue() << ","
+               << static_cast<uint32_t>(r.channelWidth) << "," << +r.nss << "\n";
+        }
+        af.close();
+    }
 
     UpdateNextMode(st);
 }
@@ -776,6 +819,20 @@ CqrWifiManager::BuildRateOrder(WifiRemoteStation* st) const
         if (txVector.IsValid(GetPhy()->GetPhyBand()))
         {
             snr = GetPhy()->CalculateSnr(txVector, m_ber);
+            if (m_order == CQR_ORDER_REQ_SNR_POWER)
+            {
+                // CalculateSnr returns a ratio against the noise in the configuration's
+                // OWN bandwidth, so raw thresholds are not comparable across widths or
+                // stream counts. IdealWifiManager handles this on the other side of the
+                // comparison: GetLastObservedSnr divides the observed SNR by
+                // (width/widthObserved) and (nss/nssObserved) before testing it against
+                // this same threshold. Folding those factors in here gives the key that
+                // is monotone in required RECEIVE POWER rather than in required SNR.
+                // Within a fixed (width, streams) group the factor is constant, so this
+                // reorders only ACROSS groups and leaves the one-dimensional control
+                // (20 MHz, 1 stream) identical to CQR_ORDER_REQ_SNR.
+                snr *= static_cast<double>(r.channelWidth) * static_cast<double>(r.nss);
+            }
         }
         else
         {
@@ -835,6 +892,26 @@ CqrWifiManager::PropagateMonotoneImpl(WifiRemoteStation* st,
         return;
     }
     const size_t r0 = station->m_rateRank[idx];
+    if (!m_costLog.empty())
+    {
+        // Closed form of what the loop below is about to do. The ranks are a permutation
+        // of 0..N-1, so exactly r0 arms sit below idx and N-1-r0 above it; counting here
+        // rather than inside the loop keeps the propagation body unchanged.
+        const size_t n = station->m_mcsStats.size();
+        const size_t easier = r0;
+        const size_t harder = (n > 0) ? (n - 1 - r0) : 0;
+        if (nSucc > 0)
+        {
+            m_budSuccMass += m_structWeight * nSucc * easier;
+            m_budTargets += easier;
+        }
+        if (nFail > 0)
+        {
+            m_budFailMass += m_structWeight * nFail * harder;
+            m_budTargets += harder;
+        }
+        m_budRankSum += r0;
+    }
     for (size_t j = 0; j < station->m_mcsStats.size(); ++j)
     {
         if (j == idx)

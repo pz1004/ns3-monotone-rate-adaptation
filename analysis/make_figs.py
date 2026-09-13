@@ -79,7 +79,11 @@ ts = fr[fr.arm.str.startswith("Thompson")].groupby(["speed", "lam"]).thr.mean()
 
 om = pd.read_parquet(R / "mono/order_matched.parquet")
 
-def scaling(arm, mcs_per_ss=12):
+# MCS per spatial stream, read from the released action-set dump so it tracks the
+# amendment actually simulated (EHT defines 14, HE 12) instead of being pinned.
+_MCS_PER_SS = int(pd.read_csv(_paths.RESULTS / "exactness/armset_latest.csv").mcs.nunique())
+
+def scaling(arm, mcs_per_ss=_MCS_PER_SS):
     """Identical to make_numbers.order_scaling, on the matched grid."""
     rows = []
     for (wd, ns), k in om.groupby(["width", "nss"]):

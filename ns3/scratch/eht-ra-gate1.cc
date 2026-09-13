@@ -62,14 +62,28 @@ static Ptr<Node> g_apNode;
 static std::map<uint32_t, uint64_t> g_mcsCount;   // MCS index -> PHY transmissions
 static std::map<uint32_t, uint64_t> g_widthCount; // channel width -> PHY transmissions
 static std::map<uint32_t, uint64_t> g_nssCount;   // Nss -> PHY transmissions
+// Joint (MCS, width, Nss) support, keyed mcs*100000 + width*10 + nss. The marginals above
+// cannot express aggressiveness once width and streams vary -- a higher MCS at fewer
+// streams can be a LOWER PHY rate -- so the joint distribution is recorded as well
+// (protocol-v1 amendment A9.3). Also gives the observed action-set support of every
+// manager, including the stock ones we do not modify.
+static std::map<uint64_t, uint64_t> g_jointCount;
+static std::map<uint64_t, uint64_t> g_rateCount; // PHY data rate (b/s) -> transmissions
 static uint64_t g_txTotal = 0;
 
 void
 SnifferTx(Ptr<const Packet>, uint16_t, WifiTxVector txVector, MpduInfo, uint16_t)
 {
-    g_mcsCount[txVector.GetMode().GetMcsValue()]++;
-    g_widthCount[static_cast<uint32_t>(txVector.GetChannelWidth())]++;
-    g_nssCount[txVector.GetNss()]++;
+    const uint32_t m = txVector.GetMode().GetMcsValue();
+    const uint32_t w = static_cast<uint32_t>(txVector.GetChannelWidth());
+    const uint32_t n = txVector.GetNss();
+    g_mcsCount[m]++;
+    g_widthCount[w]++;
+    g_nssCount[n]++;
+    g_jointCount[static_cast<uint64_t>(m) * 100000ULL + w * 10ULL + n]++;
+    g_rateCount[txVector.GetMode().GetDataRate(txVector.GetChannelWidth(),
+                                               txVector.GetGuardInterval(),
+                                               n)]++;
     g_txTotal++;
 }
 
@@ -141,7 +155,12 @@ main(int argc, char* argv[])
     std::string cqrCostLog = "";         // Cqr per-decision cost report path
     std::string cqrStructure = "None";   // Cqr rate-structure sharing: None|Monotone
     double cqrStructWeight = 0.5;        // weight on propagated evidence
-    std::string cqrOrder = "RequiredSnr"; // propagation order: RequiredSnr|DataRate
+    std::string cqrOrder = "RequiredSnr"; // propagation order: RequiredSnr|DataRate|RequiredSnrPower
+    // MatchUpstream reproduces ns3::ThompsonSamplingWifiManager's HE-only ladder, which the
+    // w=0 equivalence gate requires. Latest extends to EHT so the learners share an action
+    // set with IdealWifiManager, MinstrelHt and the ConstantRate references (amendment A9.1).
+    std::string modFamily = "MatchUpstream"; // MatchUpstream|Latest
+    std::string armsLog = "";               // enumerated action-set dump; empty disables
     std::string cqrDecayAdapt = "Fixed"; // Fixed|Adaptive
     double cqrDecayTarget = 0.05;        // target excess prediction error
     double cqrDecayEta = 0.05;           // decay recursion step size
@@ -181,7 +200,9 @@ main(int argc, char* argv[])
     cmd.AddValue("cqrCostLog", "Cqr per-decision cost report path (protocol-v1 sec. 6)", cqrCostLog);
     cmd.AddValue("cqrStructure", "Cqr rate-structure sharing: None|Monotone", cqrStructure);
     cmd.AddValue("cqrStructWeight", "Cqr propagated-evidence weight", cqrStructWeight);
-    cmd.AddValue("cqrOrder", "Cqr propagation order: RequiredSnr|DataRate", cqrOrder);
+    cmd.AddValue("cqrOrder", "Cqr propagation order: RequiredSnr|DataRate|RequiredSnrPower", cqrOrder);
+    cmd.AddValue("modFamily", "Rate-table modulation family for Cqr and Ors: MatchUpstream|Latest", modFamily);
+    cmd.AddValue("armsLog", "Dump the enumerated action set here (Cqr only); empty disables", armsLog);
     cmd.AddValue("cqrDecayAdapt", "Cqr decay mode: Fixed|Adaptive", cqrDecayAdapt);
     cmd.AddValue("cqrDecayTarget", "Cqr target excess prediction error", cqrDecayTarget);
     cmd.AddValue("cqrDecayEta", "Cqr decay recursion step size", cqrDecayEta);
@@ -278,6 +299,7 @@ main(int argc, char* argv[])
         wifi.SetRemoteStationManager("ns3::OrsWifiManager",
                                      "Variant", StringValue(orsVariant),
                                      "Order", StringValue(orsOrder),
+                                     "ModulationFamily", StringValue(modFamily),
                                      "Window", UintegerValue(orsWindow));
     }
     else if (raa == "Cqr")
@@ -293,6 +315,8 @@ main(int argc, char* argv[])
                                      "Structure", StringValue(cqrStructure),
                                      "StructureWeight", DoubleValue(cqrStructWeight),
                                      "Order", StringValue(cqrOrder),
+                                     "ModulationFamily", StringValue(modFamily),
+                                     "ArmsLog", StringValue(armsLog),
                                      "DecayAdapt", StringValue(cqrDecayAdapt),
                                      "DecayTarget", DoubleValue(cqrDecayTarget),
                                      "DecayEta", DoubleValue(cqrDecayEta));
@@ -423,6 +447,16 @@ main(int argc, char* argv[])
         for (const auto& kv : g_widthCount)
         {
             rl << "width," << kv.first << "," << kv.second << "\n";
+        }
+        for (const auto& kv : g_jointCount)
+        {
+            // "mcs_width_nss" as a single field value, so the CSV schema is unchanged.
+            rl << "joint," << (kv.first / 100000ULL) << "_" << ((kv.first % 100000ULL) / 10ULL)
+               << "_" << (kv.first % 10ULL) << "," << kv.second << "\n";
+        }
+        for (const auto& kv : g_rateCount)
+        {
+            rl << "phyrate," << kv.first << "," << kv.second << "\n";
         }
         for (const auto& kv : g_nssCount)
         {
