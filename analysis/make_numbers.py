@@ -50,6 +50,19 @@ be = t[(t.standard=="802.11be-5GHz") & (t.width_mhz==80) & (t.nss==2)]
 put("StarveBigPct", f"{be.pct.iloc[0]:.1f}")
 put("StarveBigN",   f"{int(be.n_rates.iloc[0])}")
 put("StarveCorr",   f"{np.corrcoef(t.n_rates, t.pct)[0,1]:.2f}")
+# Table size is confounded with the amendment -- 802.11be's two extra MCS are 4096-QAM and
+# rarely usable at range -- so the pooled r alone does not establish that SIZE is what
+# hurts. Sec. III says "because of that scale", so report the weakest WITHIN-amendment
+# correlation and the partial correlation holding the per-stream MCS count fixed. Both
+# must survive for that wording to stand (protocol-v1 amendment A9.12).
+put("StarveConfigs", f"{len(t)}")
+_wi = {s_: np.corrcoef(g.n_rates, g.pct)[0, 1] for s_, g in t.groupby("standard") if len(g) > 2}
+put("StarveCorrWithin", f"{max(_wi.values()):.2f}")      # weakest, i.e. closest to zero
+def _partial(x, y, z):
+    rx = x - np.polyval(np.polyfit(z, x, 1), z)
+    ry = y - np.polyval(np.polyfit(z, y, 1), z)
+    return np.corrcoef(rx, ry)[0, 1]
+put("StarvePartial", f"{_partial(t.n_rates.to_numpy(float), t.pct.to_numpy(float), t.standard.map(nmcs).to_numpy(float)):.2f}")
 
 # ---------- per-STA Jain fairness (protocol-v1 §6 secondary metric) ----------
 # Held-out speeds, both channels, 10 seeds. The index is computed per run from the
@@ -356,10 +369,26 @@ put("LambdaBest", f"{l_best:g}")
 _bias_arms = set(b[b.arm.str.startswith("Thompson")].arm.unique())
 assert _bias_arms == {f"Thompson(d={l_best})"}, (
     f"tab:bias caption prints lambda={l_best:g} but the run used {_bias_arms}")
-# residual conservatism at rest once lambda is tuned for that cell specifically
-gz = sl[(sl.arm=="Ideal") & (sl.speed==0)].set_index("seed").mean_mcs
-tz = sl[(sl.arm==f"Thompson(d={l_rest})") & (sl.speed==0)].set_index("seed").mean_mcs
-put("BiasRestOracleAbs", f"{abs((tz-gz).mean()):.2f}")
+# Sec. III has to answer whether the sign reversal is an artefact of running at ONE
+# lambda. It is not -- but the check this replaces took abs() of the per-cell-tuned
+# resting bias and the prose then called it "below the genie", when it is ABOVE
+# (protocol-v1 amendment A9.11). Sweep lambda instead and report where the reversal holds.
+_gen = sl[sl.arm == "Ideal"].groupby(["speed", "seed"]).mean_mcs.mean().rename("g")
+_bj = tl.merge(_gen, on=["speed", "seed"])
+_bj["bias"] = _bj.mean_mcs - _bj.g
+_bp = _bj.pivot_table(index="lam", columns="speed", values="bias")
+_rev = [l for l in _bp.index if _bp.loc[l, 0.0] < 0 < _bp.loc[l, 20.0]]
+assert min(_rev) == _bp.index.min(), "reversal must hold at the slowest swept lambda"
+put("BiasRevLamHi", f"{max(_rev):g}")
+_null = min(l for l in _bp.index if _bp.loc[l, 0.0] >= 0)
+put("BiasNullLam",  f"{_null:g}")
+put("BiasNullRest", f"{_bp.loc[_null, 0.0]:+.2f}")
+put("BiasNullFast", f"{_bp.loc[_null, 20.0]:+.2f}")
+# The two ends are not equally reachable: no swept lambda nulls the error under motion.
+_lff = _bp[20.0].idxmin()
+_ff  = _bj[(_bj.speed == 20.0) & (_bj.lam == _lff)].bias
+put("BiasFastFloor",   f"{_bp.loc[_lff, 20.0]:+.2f}")
+put("BiasFastFloorCI", f"{1.96*_ff.std(ddof=1)/np.sqrt(len(_ff)):.2f}")
 
 # ---------- unstructured KL-R-UCB vs structured ORS ----------
 # Sec. VI-B called this "consistent". It is not: it reverses in one cell, by a wider

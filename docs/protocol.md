@@ -571,3 +571,72 @@ Three things were **not** re-run, and no reported number depends on them:
 - **The earlier-phase exploratory sweeps** (`gate1/` except the decay frontier, and
   `mono/{configspace,h3_snr,heldout_S2,tune_split}`), which document how the work reached
   its current form. They are retained at 72 arms and labelled as such in the README.
+
+#### A9.11 — The λ-robustness check reported the wrong sign, and the wrong conclusion
+
+Added 2026-09-13, after the 84-arm re-run, during a read-through of §III.
+
+§III defends its central finding — that the sampler's selected-MCS error reverses sign
+across the speed range — against the objection that the reversal is an artefact of running
+every cell at one forgetting rate. The defence cited the residual bias at rest once λ is
+tuned for that cell alone, described as "0.04 steps below the genie".
+
+`make_numbers.py` computed that macro as `abs((tz - gz).mean())`. The signed value is
+**+0.036 ± 0.030 (n = 10, p = 0.046): above the genie, not below.** Tuning λ for the
+resting cell does not "shrink the conservatism without removing it" — it removes it
+(−1.47 → +0.04). The sentence therefore drew the opposite conclusion from its own number,
+and the number it quoted had no sign.
+
+The intended claim survives, but it needs the λ sweep rather than one tuned point. Over the
+nine swept values, with the genie on the same 84-arm table:
+
+| λ (Hz) | bias at 0 m/s | bias at 20 m/s |
+|---|---|---|
+| 0 | −1.86 | **+1.83** |
+| 0.5 | −1.73 | +1.83 |
+| 1 (ns-3 default) | −1.59 | +2.03 |
+| 2 (used in Table I) | −1.47 | +2.35 |
+| 5 | −0.96 | +2.81 |
+| 10 | −0.49 | +3.39 |
+| 20 | −0.13 | +3.73 |
+| 50 | **+0.04** | +4.35 |
+| 100 | +0.06 | +4.75 |
+
+Two statements replace the withdrawn one, both read off this sweep:
+
+1. **The reversal is not an artefact of the chosen λ.** It holds at every swept λ from 0 to
+   20 Hz, the ns-3 default included — seven of nine values. It fails only at λ ≥ 50, where
+   the resting error is nulled (+0.04) and the error under motion grows to +4.35 steps.
+2. **The two ends are not equally reachable.** The resting error can be nulled outright by
+   λ alone; the error under motion cannot. Its minimum over the whole swept range is
+   **+1.83 ± 0.25 steps** (p = 1.7×10⁻⁷), at the slow end of the sweep — λ = 0 and λ = 0.5
+   are indistinguishable there, 1.8273 against 1.8279. Forgetting rate is an adequate
+   instrument for one end of the error and not the other.
+
+Statement 2 is a stronger motivation for §IV than the argument it replaces, and it is
+**exploratory**: the frozen protocol pre-registers neither the λ sweep as a robustness
+check nor the reachability asymmetry. It is reported as such.
+
+`BiasRestOracleAbs` is withdrawn. `BiasRevLamHi`, `BiasNullLam`, `BiasNullRest`,
+`BiasNullFast`, `BiasFastFloor` and `BiasFastFloorCI` replace it, and `make_numbers.py`
+now asserts that the reversal holds at the slowest swept λ rather than trusting it.
+
+#### A9.12 — "Because of that scale" was a pooled correlation over confounded points
+
+Added 2026-09-13, alongside A9.11.
+
+§III concludes the starvation sweep with "Minstrel-HT degrades *because* of that scale"
+from r = −0.84 between table size and convergence-phase throughput, pooled over 22
+configurations. Table size is confounded with the amendment: 802.11be's two extra MCS are
+4096-QAM and rarely usable at range, so the pooled r alone does not separate "the table is
+bigger" from "the new rates are harder".
+
+The check was run and the claim survives. Within each amendment separately, r is −0.95
+(802.11n, 4 points), −0.80 (802.11ac, 6), −0.98 (802.11ax, 6) and −0.99 (802.11be, 6). The
+partial correlation holding the per-stream MCS count fixed is **−0.83**, against the pooled
+−0.84. Size, not the amendment, is doing the work.
+
+The manuscript now reports the partial correlation. `StarveConfigs`, `StarveCorrWithin` and
+`StarvePartial` are added to `make_numbers.py`; `StarveCorrWithin` is computed and released
+but not cited in the 6-page manuscript, for space. This check is **exploratory** — the
+frozen protocol pre-registers the scaling correlation but no confound analysis of it.
