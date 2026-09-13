@@ -452,7 +452,12 @@ put("EquivConfigs", str(len(_grid[0]) * len(_grid[1]) * len(_grid[2])))
 
 
 # ---------- rate-table growth, 802.11a -> 802.11be ----------
-put("TableGrowth", f"{int(out['StarveBigN'])//int(out['StarveSmallN'])}")
+# 802.11a defines eight OFDM data rates (6 to 54 Mb/s). The abstract and Sec. I compare
+# against THAT, not against the small end of the manager sweep -- which happens to be an
+# 802.11n 20 MHz single-stream table of the same size, so the two were indistinguishable
+# and a change to the sweep would have silently restated the standard (A9.18).
+putn("LegacyRates", 8)
+put("TableGrowth", f"{int(out['StarveBigN'])//int(out['LegacyRates'])}")
 
 # ---------- worst Thompson-frontier loss (Pattern A) ----------
 # This was |min over the WHOLE Thompson column|, which is a different cell: the table-wide

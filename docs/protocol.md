@@ -879,3 +879,48 @@ re-litigated:
 - **Flat fading.** ns-3's `JakesPropagationLossModel` is a propagation loss model, single
   tap, so the manuscript's statement that it is flat where real 80 MHz fading is frequency
   selective is correct.
+
+#### A9.18 — The abstract and §I did not inherit three corrections made to the body
+
+Added 2026-09-13, during a read-through of the abstract and §I.
+
+Three earlier amendments corrected claims in the body and left the same claims standing in
+the abstract and the introduction — the two parts of the paper most people read, and the
+only two a reviewer is certain to read. The paper was internally inconsistent in both.
+
+**1. "The result does not rest on an SNR convention" (abstract).** A9.13 established that
+`RequiredSnrPower` and `RequiredSnr` agree on every within-MCS comparison by construction —
+precisely the comparisons where the two conventions most sharply disagree — and differ only
+in how MCS interleave across (width, stream) groups. §IV and §VI-A were both corrected to
+say what the comparison isolates. The abstract still claimed the general form. It now reads
+"the result is robust to that normalisation", which is what was measured.
+
+**2. "Differs from a genie on the same action set" (§I).** A9.14 established that
+`IdealWifiManager` cannot narrow its channel and ranges over 28 of the 84 configurations.
+§V and §III were corrected; §I's contribution list still asserted a shared action set. The
+qualifier is removed — the genie's action set is stated in §V, which is where it belongs.
+
+**3. "The deployed bandit" (§I).** ns-3's discounted Thompson sampler is shipped with the
+simulator, not deployed in any product; Minstrel-HT is the deployed one. §III and Fig. 1's
+caption were corrected; §I's contribution list was the last instance. Now "the shipped
+bandit", matching §I's own opening sentence two paragraphs earlier.
+
+**One further scope slip, same class.** §VI-A attributes the ordering difference "to the
+ordering and to nothing else **in the implementation**"; the abstract dropped the scope and
+said "to ordering alone", which reads as a stronger attribution than the null control
+supports — particularly next to A9.16's finding that the realised propagation budgets
+differ. The abstract now says the control "isolates the ordering from the rest of the
+implementation".
+
+**And one latent trap, fixed rather than found.** `TableGrowth` was
+`StarveBigN // StarveSmallN`, and the abstract prints it as the growth "from 802.11a to
+802.11be". `StarveSmallN` is the small end of the *manager sweep* — an 802.11n 20 MHz
+single-stream table — which happens to hold eight rates, the same as 802.11a's eight OFDM
+data rates. The abstract and §I were therefore correct only by coincidence, and a change to
+the sweep grid would have silently restated the standard. 802.11a's count is now an explicit
+`LegacyRates` constant, documented as the standard's own figure.
+
+No measured value changes. The lesson is procedural and worth recording: **a correction to
+a body section is not complete until the abstract and introduction have been re-read against
+it.** Sections III to VII were each audited and corrected in turn, and none of those passes
+looked forward to the summary that had already asserted the uncorrected claim.
