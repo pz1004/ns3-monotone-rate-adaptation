@@ -837,3 +837,45 @@ and `run_gate1.py` did not, so the documented dry run died on an argparse error 
 of the 19 blocks and never reached the other 17. Both now accept the flag, print the grid
 size and return, as `run_sweep.py` already did, and `measure_budget.py` follows the same
 convention. `DRY_RUN=1 bash reproduce.sh` now completes and prints all 20 grid sizes.
+
+#### A9.17 — A range whose ends printed identically, and an untied constant in §VII
+
+Added 2026-09-13, during a read-through of §VII.
+
+**"loses 17–17% under motion".** The adaptive-λ ablation loses in both moving cells of its
+grid, −16.52% at 10 m/s and −16.84% at 2 m/s. `AdaptMoveLo`/`AdaptMoveHi` were formatted at
+`.0f`, so both rendered as 17 and the manuscript printed a range with identical endpoints —
+which reads as a typesetting fault rather than a measurement. The numbers were right; the
+presentation was not. Both now print at one decimal, matching the pattern B range two
+sentences earlier, and `make_numbers.py` asserts the endpoints remain distinguishable so a
+future collapse is caught rather than typeset.
+
+**Why λ = 50 in pattern B.** §VII argues that the resting-cell loss under fading is a
+fixed-λ artefact, "since re-running *ours* at λ = 50 there turns both losses into gains".
+`PB_LAM = 50` was a hardcoded constant, and a reader is entitled to ask whether it was
+chosen to make the loss disappear. It was not: 50 Hz is the resting throughput optimum §III
+measures independently (`LambdaRest`). The constant is now asserted equal to that
+measurement, and the manuscript names the connection instead of leaving it to be inferred.
+
+**One claim removed.** §VII speculated that "a signal using the *sign consistency* of
+successive errors could separate them". That was a conjecture, not a result. The diagnosis
+it followed — excess prediction error cannot distinguish fast fading around a stable mean
+from a drifting mean — is retained, now stated as the magnitude of the error not carrying
+the distinction. Nothing measured changes.
+
+Four §VII claims were checked against the data and hold, recorded so they are not
+re-litigated:
+
+- **Three of eighteen cells, in two patterns.** The three daggered cells are (path loss,
+  1 STA), (fading, 4 STA) and (fading, 8 STA); pattern A is the first and pattern B the
+  other two, so the two patterns account for all three failures.
+- **"A very forgetful sampler."** The winning Thompson arm in the pattern B cells is
+  λ = 50 Hz at four stations and λ = 20 Hz at eight — both far more forgetful than the
+  shipped λ = 1 or the campaign's λ = 2.
+- **"The cell that motivated it."** The adaptive-λ grid is four stations on the fading
+  channel at speeds {0, 2, 10}, all tuning-split speeds, and the motivating cell is its
+  0 m/s point — one of the two pattern B cells. The ablation is consistent with the
+  pattern it was built to address, and used no held-out speed.
+- **Flat fading.** ns-3's `JakesPropagationLossModel` is a propagation loss model, single
+  tap, so the manuscript's statement that it is flat where real 80 MHz fading is frequency
+  selective is correct.

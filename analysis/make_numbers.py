@@ -479,6 +479,10 @@ assert float(out["PatternALoss"]) < abs(float(out["LoThompson"])), \
 # no run behind it; these are the runs. Both failing cells, ours at several lambda,
 # against the best Thompson the campaign found in the same cell.
 PB_LAM = 50
+# Sec. VII re-runs ours at this lambda, so a reader may reasonably ask whether it was
+# chosen to make the loss disappear. It was not: it is the resting throughput optimum
+# Sec. III measures independently. Tie the constant to that measurement (A9.17).
+assert PB_LAM == l_rest, f"pattern B lambda {PB_LAM} is no longer the resting optimum {l_rest}"
 pb = {d: pd.read_parquet(f"{R}/mono/monodecay_{d}.parquet") for d in (2, PB_LAM)}
 lo, hi, flo, fhi = [], [], [], []
 for ns in (4, 8):
@@ -548,7 +552,12 @@ put("AdaptRest", f"{100*(z.adapt.mean()/z.fixed.mean()-1):+.1f}")
 mv = j[j.speed>0]
 lo = min(100*(g.adapt.mean()/g.fixed.mean()-1) for _,g in mv.groupby("speed"))
 hi = max(100*(g.adapt.mean()/g.fixed.mean()-1) for _,g in mv.groupby("speed"))
-put("AdaptMoveLo", f"{abs(hi):.0f}"); put("AdaptMoveHi", f"{abs(lo):.0f}")
+# Both moving cells land near 16.7, so at .0f this printed "loses 17--17% under motion"
+# -- a range that reads as a typesetting fault (amendment A9.17). One decimal, matching
+# the pattern B range two sentences earlier, and assert the endpoints stay distinguishable.
+put("AdaptMoveLo", f"{abs(hi):.1f}"); put("AdaptMoveHi", f"{abs(lo):.1f}")
+assert out["AdaptMoveLo"] != out["AdaptMoveHi"], (
+    f"a range whose ends print identically ({out['AdaptMoveLo']}) should be one number")
 
 with open(_paths.OUT / "numbers.tex","w") as f:
     for k,v in sorted(out.items()):
